@@ -1,4 +1,4 @@
-import type { DatasetQuery, PointCategory, PointRecord, PointsApiResponse } from '../../../shared/points.js';
+import type { DatasetQuery, PointCategory, PointRecord, PointsApiResponse } from '../../../../shared/points.js';
 import { createRandomSource, type RandomSource } from './prng.js';
 
 interface NamedCenter {
@@ -156,13 +156,25 @@ function pickCategory(
 }
 
 function makeName(rng: RandomSource, anchorName: string, category: PointCategory): string {
-  const suffix = rng.pick(NAME_PARTS[category]);
+  const parts = NAME_PARTS[category];
+
+  if (!parts) {
+    throw new Error(`Unknown category for naming: ${category}`);
+  }
+
+  const suffix = rng.pick(parts);
   const serial = rng.int(1, 999);
   return `${anchorName} ${suffix} ${serial}`;
 }
 
 function makeWeight(rng: RandomSource, category: PointCategory, intensity: number): number {
-  const base = CATEGORY_BASE_WEIGHT[category] * intensity;
+  const baseWeight = CATEGORY_BASE_WEIGHT[category];
+
+  if (baseWeight === undefined) {
+    throw new Error(`Unknown category for weight: ${category}`);
+  }
+
+  const base = baseWeight * intensity;
   const jitter = Math.max(0.45, 1 + rng.normal(0, 0.25));
   return Math.max(1, Math.round(base * jitter));
 }

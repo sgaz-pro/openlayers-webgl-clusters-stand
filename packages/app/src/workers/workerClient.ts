@@ -9,7 +9,7 @@ import type {
 import type { LonLatBbox, PointRecord } from '@shared/points';
 
 interface PendingRequest {
-  resolve: (payload: unknown) => void;
+  resolve: (payload: any) => void;
   reject: (reason?: unknown) => void;
 }
 

@@ -20,14 +20,7 @@ export class DatasetStore {
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore;
-    makeAutoObservable(
-      this,
-      {
-        rootStore: false,
-        abortController: false,
-      },
-      { autoBind: true },
-    );
+    makeAutoObservable(this, {}, { autoBind: true });
   }
 
   get downloadProgressRatio(): number | null {
@@ -122,4 +115,3 @@ export class DatasetStore {
     }
   }
 }
-

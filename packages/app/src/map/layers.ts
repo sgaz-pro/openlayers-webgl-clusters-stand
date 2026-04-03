@@ -98,7 +98,7 @@ export function createLabelLayer(source: VectorSource<Feature<Point>>) {
       const labelText = feature.get('labelText') as string | undefined;
 
       if (!labelText) {
-        return null;
+        return undefined;
       }
 
       const cached = labelStyleCache.get(labelText);

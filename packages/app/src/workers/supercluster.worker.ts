@@ -9,11 +9,11 @@ type ClusterProperties = {
   cluster: true;
   cluster_id: number;
   point_count: number;
-  point_count_abbreviated: number;
+  point_count_abbreviated: number | string;
 };
 
 type IndexedFeature = Feature<Point, PointRecord>;
-type ClusteredFeature = Feature<Point, ClusterProperties>;
+type QueriedFeature = Feature<Point, PointRecord | ClusterProperties>;
 
 const workerScope = self as DedicatedWorkerGlobalScope;
 let clusterIndex: Supercluster<PointRecord, ClusterProperties> | null = null;
@@ -22,18 +22,27 @@ function postMessage(message: WorkerResponse): void {
   workerScope.postMessage(message);
 }
 
-function toVisibleItem(feature: IndexedFeature | ClusteredFeature): VisibleItem {
+function isClusterProperties(properties: PointRecord | ClusterProperties): properties is ClusterProperties {
+  return 'cluster' in properties && properties.cluster === true;
+}
+
+function toVisibleItem(feature: QueriedFeature): VisibleItem {
   const [lon, lat] = feature.geometry.coordinates as [number, number];
   const properties = feature.properties;
 
-  if ('cluster' in properties && properties.cluster) {
+  if (isClusterProperties(properties)) {
+    const abbreviatedCount =
+      typeof properties.point_count_abbreviated === 'number'
+        ? properties.point_count_abbreviated
+        : Number.parseInt(properties.point_count_abbreviated, 10) || properties.point_count;
+
     return {
       kind: 'cluster',
       clusterId: properties.cluster_id,
       lon,
       lat,
       pointCount: properties.point_count,
-      abbreviatedCount: properties.point_count_abbreviated,
+      abbreviatedCount,
     };
   }
 
@@ -94,7 +103,7 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const startedAt = performance.now();
         const items = ensureIndex()
           .getClusters(message.payload.bbox, message.payload.zoom)
-          .map((feature) => toVisibleItem(feature as IndexedFeature | ClusteredFeature));
+          .map((feature) => toVisibleItem(feature as QueriedFeature));
 
         postMessage({
           requestId: message.requestId,
@@ -120,8 +129,6 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
         });
         break;
       }
-      default:
-        throw new Error(`Unsupported worker message type: ${String(message.type)}`);
     }
   } catch (error) {
     postMessage({

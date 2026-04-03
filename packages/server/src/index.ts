@@ -1,5 +1,4 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { parse } from 'node:url';
 import type { DatasetMode, DatasetQuery, HealthApiResponse } from '../../../shared/points.js';
 import {
   DEFAULT_PORT,
@@ -29,21 +28,19 @@ function parseMode(value: string | null): DatasetMode {
   return DEFAULT_QUERY.mode;
 }
 
-function parseDatasetQuery(request: IncomingMessage): DatasetQuery {
-  const { query } = parse(request.url ?? '', true);
-  const count = Math.max(1, Math.min(MAX_COUNT, parseInteger(asString(query.count), DEFAULT_QUERY.count)));
-  const seed = parseInteger(asString(query.seed), DEFAULT_QUERY.seed);
-  const mode = parseMode(asString(query.mode));
+function parseDatasetQuery(url: URL): DatasetQuery {
+  const count = Math.max(
+    1,
+    Math.min(MAX_COUNT, parseInteger(url.searchParams.get('count'), DEFAULT_QUERY.count)),
+  );
+  const seed = parseInteger(url.searchParams.get('seed'), DEFAULT_QUERY.seed);
+  const mode = parseMode(url.searchParams.get('mode'));
 
-  return { count, seed, mode };
-}
-
-function asString(value: string | string[] | undefined): string | null {
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  return Array.isArray(value) ? value[0] ?? null : null;
+  return {
+    count,
+    seed,
+    mode,
+  };
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -65,7 +62,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   }
 
   if (request.method === 'GET' && url.pathname === '/api/points') {
-    const query = parseDatasetQuery(request);
+    const query = parseDatasetQuery(url);
     const dataset = generatePointsDataset(query);
     await streamJson(response, 200, dataset, STREAM_CHUNK_SIZE);
     return;

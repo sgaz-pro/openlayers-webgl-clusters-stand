@@ -22,14 +22,7 @@ export class ClusterStore {
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore;
-    makeAutoObservable(
-      this,
-      {
-        rootStore: false,
-        workerClient: false,
-      },
-      { autoBind: true },
-    );
+    makeAutoObservable(this, {}, { autoBind: true });
   }
 
   dispose(): void {
@@ -96,4 +89,3 @@ export class ClusterStore {
     this.currentZoom = zoom;
   }
 }
-
