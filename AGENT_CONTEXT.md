@@ -33,6 +33,7 @@ Core idea:
 - `packages/app/src/components/DisplayPanel.tsx`: placeholder display settings section
 - `packages/app/src/components/MetricsPanel.tsx`: runtime metrics section
 - `packages/app/src/components/MapView.tsx`: OpenLayers map lifecycle and click-to-zoom
+- `packages/app/src/map/icons.ts`: SVG icon catalog for point categories
 - `packages/app/src/stores/DatasetStore.ts`: load phases and progress
 - `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
 - `packages/app/src/stores/ClusterStore.ts`: worker RPC and visible cluster state
@@ -50,6 +51,8 @@ Core idea:
 - The app targets `0.0.0.0` for dev host binding.
 - Supported dataset modes are `mixed` and `industrial`.
 - The client shell currently uses native browser controls and lightweight custom CSS.
+- Clusters are rendered as circles, while visible leaf points use category-specific SVG icons.
+- Point names are rendered in a separate decluttered layer to the right of the icon.
 
 ## Common change map
 
@@ -83,6 +86,7 @@ If you need to change map rendering:
 - `packages/app/src/components/MapView.tsx`
 - `packages/app/src/map/layers.ts`
 - `packages/app/src/map/featureFactories.ts`
+- `packages/app/src/map/icons.ts`
 
 If you need to change the overlay shell / right panel layout:
 
@@ -102,7 +106,7 @@ If you need to change server-side data realism:
 
 - do not use `deck.gl`
 - do not patch OpenLayers internals unless truly necessary
-- do not render labels for all points at once
+- do not render labels for the entire dataset at once; keep labels scoped to visible points
 - keep `supercluster` indexing in a Web Worker
 - keep cluster refresh on `moveend`, not per frame
 - keep the map as the primary fullscreen surface; the control panel should stay an overlay, not reflow the map

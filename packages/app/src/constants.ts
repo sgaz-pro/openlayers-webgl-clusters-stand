@@ -41,6 +41,3 @@ export const INITIAL_VIEW = {
   minZoom: 2,
   maxZoom: 18,
 };
-
-export const LABEL_ZOOM_THRESHOLD = 13;
-export const MAX_LABELS = 220;

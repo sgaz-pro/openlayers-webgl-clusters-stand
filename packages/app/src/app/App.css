@@ -1,8 +1,8 @@
 :root {
   --panel-width: min(24rem, 100vw);
-  --panel-bg: rgba(255, 255, 255, 0.94);
+  --panel-bg: rgba(255, 255, 255, 0.78);
   --panel-border: rgba(0, 0, 0, 0.12);
-  --panel-surface: rgba(255, 255, 255, 0.7);
+  --panel-surface: rgba(255, 255, 255, 0.34);
   --panel-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
   --panel-gap: 1rem;
 }
@@ -126,13 +126,23 @@ body {
   border-left: 1px solid var(--panel-border);
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .control-panel__actions {
   display: flex;
   justify-content: flex-end;
   padding: 0.75rem 0.75rem 0;
+}
+
+.control-panel__surface button,
+.control-panel__surface input,
+.control-panel__surface select,
+.control-panel__surface summary {
+  font: inherit;
 }
 
 .control-panel__close {
@@ -171,6 +181,7 @@ body {
   cursor: pointer;
   font-weight: 600;
   user-select: none;
+  font-size: 0.86rem;
 }
 
 .panel-section__body {
@@ -180,7 +191,7 @@ body {
 .status-card,
 .metric-card {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.26);
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
@@ -215,14 +226,14 @@ body {
 
 .info-grid dt {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .info-grid dd {
   margin: 0.4rem 0 0;
-  font-size: 0.96rem;
+  font-size: 0.86rem;
   font-weight: 600;
   word-break: break-word;
 }
@@ -249,6 +260,7 @@ body {
 .placeholder-copy {
   margin: 0;
   line-height: 1.4;
+  font-size: 0.78rem;
 }
 
 .connection-actions {
@@ -273,7 +285,7 @@ body {
 }
 
 .progress-copy {
-  font-size: 0.9rem;
+  font-size: 0.78rem;
 }
 
 .status-text--ok {
@@ -301,13 +313,13 @@ body {
 }
 
 .metric-card h3 {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
 
 .metric-card p {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.84rem;
   font-weight: 600;
   word-break: break-word;
 }

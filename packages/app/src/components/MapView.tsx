@@ -10,9 +10,10 @@ import OSM from 'ol/source/OSM.js';
 import VectorSource from 'ol/source/Vector.js';
 import { fromLonLat } from 'ol/proj.js';
 import type { LonLatBbox } from '@shared/points';
+import type { VisibleItem } from '@shared/worker';
 import { INITIAL_VIEW } from '../constants';
 import { createVisibleFeature, createLabelFeatures } from '../map/featureFactories';
-import { createClusterPointsLayer, createLabelLayer } from '../map/layers';
+import { createClusterLayer, createLabelLayer, createPointIconLayer } from '../map/layers';
 import { useRootStore } from '../stores/RootStore';
 
 function toLonLatBbox(extent: number[]): LonLatBbox {
@@ -20,17 +21,25 @@ function toLonLatBbox(extent: number[]): LonLatBbox {
   return [west, south, east, north];
 }
 
+function isClusterItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 'cluster' }> {
+  return item.kind === 'cluster';
+}
+
+function isPointItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 'point' }> {
+  return item.kind === 'point';
+}
+
 export const MapView = observer(function MapView() {
   const { clusterStore, datasetStore } = useRootStore();
   const visibleItems = clusterStore.visibleItems;
-  const currentZoom = clusterStore.currentZoom;
   const indexRevision = clusterStore.indexRevision;
   const phase = datasetStore.phase;
   const errorMessage = datasetStore.errorMessage;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
-  const pointsSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
+  const clusterSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
+  const pointSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
   const labelsSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
 
   useEffect(() => {
@@ -38,9 +47,11 @@ export const MapView = observer(function MapView() {
       return;
     }
 
-    const pointsSource = new VectorSource<Feature<Point>>();
+    const clusterSource = new VectorSource<Feature<Point>>();
+    const pointSource = new VectorSource<Feature<Point>>();
     const labelsSource = new VectorSource<Feature<Point>>();
-    pointsSourceRef.current = pointsSource;
+    clusterSourceRef.current = clusterSource;
+    pointSourceRef.current = pointSource;
     labelsSourceRef.current = labelsSource;
 
     const map = new Map({
@@ -50,7 +61,8 @@ export const MapView = observer(function MapView() {
           source: new OSM(),
           zIndex: 0,
         }),
-        createClusterPointsLayer(pointsSource),
+        createClusterLayer(clusterSource),
+        createPointIconLayer(pointSource),
         createLabelLayer(labelsSource),
       ],
       view: new View({
@@ -118,34 +130,38 @@ export const MapView = observer(function MapView() {
       map.un('singleclick', handleSingleClick);
       map.setTarget(undefined);
       mapRef.current = null;
-      pointsSourceRef.current = null;
+      clusterSourceRef.current = null;
+      pointSourceRef.current = null;
       labelsSourceRef.current = null;
     };
   }, [clusterStore]);
 
   useEffect(() => {
-    const pointsSource = pointsSourceRef.current;
+    const clusterSource = clusterSourceRef.current;
+    const pointSource = pointSourceRef.current;
     const labelsSource = labelsSourceRef.current;
 
-    if (!pointsSource || !labelsSource) {
+    if (!clusterSource || !pointSource || !labelsSource) {
       return;
     }
 
-    pointsSource.clear(true);
+    clusterSource.clear(true);
+    pointSource.clear(true);
     labelsSource.clear(true);
 
     if (visibleItems.length > 0) {
-      pointsSource.addFeatures(visibleItems.map(createVisibleFeature));
+      clusterSource.addFeatures(visibleItems.filter(isClusterItem).map(createVisibleFeature));
+      pointSource.addFeatures(visibleItems.filter(isPointItem).map(createVisibleFeature));
     }
 
-    const labelFeatures = createLabelFeatures(visibleItems, currentZoom);
+    const labelFeatures = createLabelFeatures(visibleItems);
 
     if (labelFeatures.length > 0) {
       labelsSource.addFeatures(labelFeatures);
     }
 
     clusterStore.setRenderedLabels(labelFeatures.length);
-  }, [clusterStore, currentZoom, visibleItems]);
+  }, [clusterStore, visibleItems]);
 
   useEffect(() => {
     if (phase !== 'ready') {
@@ -176,7 +192,7 @@ export const MapView = observer(function MapView() {
     <section className="map-card">
       <div ref={containerRef} className="map-root" />
       <div className="map-overlay">
-        <div className="overlay-chip">EPSG:3857 / OSM / WebGL points</div>
+        <div className="overlay-chip">EPSG:3857 / OSM / SVG point icons</div>
         {phase !== 'ready' ? <div className="overlay-status">phase: {phase}</div> : null}
         {phase === 'idle' ? <div className="overlay-status">Нажмите «Подключиться», чтобы запустить загрузку</div> : null}
         {errorMessage ? <div className="overlay-error">{errorMessage}</div> : null}
