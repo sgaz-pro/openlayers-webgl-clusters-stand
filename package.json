@@ -12,7 +12,6 @@
     "typecheck": "npm run typecheck --workspace @demo/server && npm run typecheck --workspace @demo/app"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "5.6.3"
   }
 }
-
