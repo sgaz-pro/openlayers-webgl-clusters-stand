@@ -44,7 +44,7 @@ function parseDatasetQuery(url: URL): DatasetQuery {
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `${host}:${port}`}`);
 
   if (request.method === 'GET' && url.pathname === '/api/health') {
     const payload: HealthApiResponse = {
@@ -75,6 +75,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 }
 
 const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const host = process.env.HOST ?? '0.0.0.0';
 
 const server = createServer((request, response) => {
   handleRequest(request, response).catch((error: unknown) => {
@@ -83,6 +84,6 @@ const server = createServer((request, response) => {
   });
 });
 
-server.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`Server listening on http://${host}:${port}`);
 });

@@ -70,7 +70,7 @@ Run the app in another terminal:
 npm run dev:app
 ```
 
-Open `http://localhost:5173`.
+Open `http://0.0.0.0:5173`.
 
 Production build:
 
