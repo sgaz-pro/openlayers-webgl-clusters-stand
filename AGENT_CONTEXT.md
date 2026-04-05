@@ -54,6 +54,7 @@ Core idea:
 - User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
 - Loading phases are: `idle`, `downloading`, `parsing`, `indexing`, `ready`, `error`.
 - The app targets `0.0.0.0` for dev host binding.
+- The map allows three extra zoom-in steps beyond the previous ceiling; current view max zoom is `21`.
 - Supported dataset modes are `mixed` and `industrial`.
 - The client shell currently uses native browser controls and lightweight custom CSS.
 - Clusters are rendered as circles, while visible leaf points use category-specific SVG icons.

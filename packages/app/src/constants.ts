@@ -37,7 +37,7 @@ export const INITIAL_VIEW = {
   center: [13.405, 52.52] as [number, number],
   zoom: 2.4,
   minZoom: 2,
-  maxZoom: 18,
+  maxZoom: 21,
 };
 
 export const DEFAULT_CLUSTER_DISPLAY_SETTINGS: ClusterDisplaySettings = {

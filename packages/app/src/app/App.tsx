@@ -71,7 +71,7 @@ export const App = observer(function App() {
             </details>
 
             <details className="panel-section" open>
-              <summary>Параметры отображения</summary>
+              <summary>Параметры отображения Supercluster</summary>
               <div className="panel-section__body">
                 <DisplayPanel />
               </div>

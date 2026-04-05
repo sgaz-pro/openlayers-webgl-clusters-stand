@@ -77,6 +77,7 @@
 - leaf points: separate `VectorLayer` with category-specific SVG icons
 - labels: separate `VectorLayer`, aligned to the right of the icon with decluttering
 - at maximum zoom, the cluster query bbox is padded and label decluttering is disabled so near-edge labels stay visible
+- the view allows extra over-zoom up to `21` so dense areas can be inspected with three additional zoom-in steps
 - cluster tuning controls expose `radius`, `minZoom`, `maxZoom`, `minPoints`, `extent`, `nodeSize` and `denseRevealViewZoom`
 
 ## Important invariants
