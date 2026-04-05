@@ -53,6 +53,7 @@ Core idea:
 - The client shell currently uses native browser controls and lightweight custom CSS.
 - Clusters are rendered as circles, while visible leaf points use category-specific SVG icons.
 - Point names are rendered in a separate decluttered layer to the right of the icon.
+- At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
 
 ## Common change map
 

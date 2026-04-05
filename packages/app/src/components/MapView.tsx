@@ -11,7 +11,7 @@ import VectorSource from 'ol/source/Vector.js';
 import { fromLonLat } from 'ol/proj.js';
 import type { LonLatBbox } from '@shared/points';
 import type { VisibleItem } from '@shared/worker';
-import { INITIAL_VIEW } from '../constants';
+import { FREE_LABEL_ZOOM_THRESHOLD, INITIAL_VIEW, LABEL_QUERY_PADDING_RATIO } from '../constants';
 import { createVisibleFeature, createLabelFeatures } from '../map/featureFactories';
 import { createClusterLayer, createLabelLayer, createPointIconLayer } from '../map/layers';
 import { useRootStore } from '../stores/RootStore';
@@ -19,6 +19,23 @@ import { useRootStore } from '../stores/RootStore';
 function toLonLatBbox(extent: number[]): LonLatBbox {
   const [west, south, east, north] = extent as [number, number, number, number];
   return [west, south, east, north];
+}
+
+function padBbox([west, south, east, north]: LonLatBbox, ratio: number): LonLatBbox {
+  const lonPadding = (east - west) * ratio;
+  const latPadding = (north - south) * ratio;
+
+  return [west - lonPadding, south - latPadding, east + lonPadding, north + latPadding];
+}
+
+function getQueryBbox(extent: number[], zoom: number): LonLatBbox {
+  const bbox = toLonLatBbox(transformExtent(extent, 'EPSG:3857', 'EPSG:4326'));
+
+  if (zoom >= FREE_LABEL_ZOOM_THRESHOLD) {
+    return padBbox(bbox, LABEL_QUERY_PADDING_RATIO);
+  }
+
+  return bbox;
 }
 
 function isClusterItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 'cluster' }> {
@@ -91,7 +108,7 @@ export const MapView = observer(function MapView() {
         return;
       }
 
-      const bbox = toLonLatBbox(transformExtent(view.calculateExtent(size), 'EPSG:3857', 'EPSG:4326'));
+      const bbox = getQueryBbox(view.calculateExtent(size), zoom);
       await clusterStore.queryClusters(bbox, zoom);
     };
 
@@ -184,7 +201,7 @@ export const MapView = observer(function MapView() {
     const zoom = view.getZoom() ?? INITIAL_VIEW.zoom;
     clusterStore.setCurrentZoom(zoom);
 
-    const bbox = toLonLatBbox(transformExtent(view.calculateExtent(size), 'EPSG:3857', 'EPSG:4326'));
+    const bbox = getQueryBbox(view.calculateExtent(size), zoom);
     void clusterStore.queryClusters(bbox, zoom);
   }, [clusterStore, indexRevision, phase]);
 

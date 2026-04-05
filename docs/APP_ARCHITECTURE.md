@@ -72,6 +72,7 @@
 - clusters: WebGL layer
 - leaf points: separate `VectorLayer` with category-specific SVG icons
 - labels: separate `VectorLayer`, aligned to the right of the icon with decluttering
+- at maximum zoom, the cluster query bbox is padded and label decluttering is disabled so near-edge labels stay visible
 
 ## Important invariants
 
@@ -119,5 +120,6 @@ To change cluster visuals:
 
 To change point label generation:
 
+- `src/constants.ts`
 - `src/map/featureFactories.ts`
 - `src/map/layers.ts`

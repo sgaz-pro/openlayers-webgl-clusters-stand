@@ -9,6 +9,7 @@ import Stroke from 'ol/style/Stroke.js';
 import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
 import type { PointCategory } from '@shared/points';
+import { LABEL_RENDER_BUFFER_PX } from '../constants';
 import { POINT_ICON_COLORS, POINT_ICON_URLS } from './icons';
 
 const CLUSTER_STYLE = {
@@ -87,7 +88,8 @@ export function createPointIconLayer(source: VectorSource<Feature<Point>>) {
 export function createLabelLayer(source: VectorSource<Feature<Point>>) {
   return new VectorLayer({
     source,
-    declutter: true,
+    declutter: false,
+    renderBuffer: LABEL_RENDER_BUFFER_PX,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
     zIndex: 26,
@@ -111,7 +113,7 @@ export function createLabelLayer(source: VectorSource<Feature<Point>>) {
           textAlign: 'left',
           textBaseline: 'middle',
           padding: [2, 4, 2, 4],
-          overflow: false,
+          overflow: true,
           fill: new Fill({ color: '#0f172a' }),
           backgroundFill: new Fill({ color: 'rgba(255, 255, 255, 0.8)' }),
           backgroundStroke: new Stroke({ color: 'rgba(15, 23, 42, 0.16)', width: 1 }),

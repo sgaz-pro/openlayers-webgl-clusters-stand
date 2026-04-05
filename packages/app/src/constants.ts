@@ -41,3 +41,7 @@ export const INITIAL_VIEW = {
   minZoom: 2,
   maxZoom: 18,
 };
+
+export const FREE_LABEL_ZOOM_THRESHOLD = INITIAL_VIEW.maxZoom - 0.5;
+export const LABEL_QUERY_PADDING_RATIO = 0.25;
+export const LABEL_RENDER_BUFFER_PX = 256;
