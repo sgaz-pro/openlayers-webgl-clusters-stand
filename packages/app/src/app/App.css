@@ -1,6 +1,8 @@
 :root {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: #e2e8f0;
+  --map-height-desktop: clamp(30rem, 68vh, 52rem);
+  --map-height-mobile: clamp(22rem, 56vh, 34rem);
   background:
     radial-gradient(circle at top left, rgba(251, 191, 36, 0.14), transparent 24%),
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 28%),
@@ -207,12 +209,12 @@ code {
 
 .map-card {
   position: relative;
-  min-height: 68vh;
+  height: var(--map-height-desktop);
 }
 
 .map-root {
   width: 100%;
-  min-height: 68vh;
+  height: var(--map-height-desktop);
 }
 
 .map-overlay {
@@ -368,6 +370,6 @@ code {
 
   .map-card,
   .map-root {
-    min-height: 56vh;
+    height: var(--map-height-mobile);
   }
 }
