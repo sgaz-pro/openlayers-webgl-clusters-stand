@@ -2,7 +2,7 @@
 
 import type { Feature, Point } from 'geojson';
 import Supercluster from 'supercluster';
-import type { PointRecord } from '@shared/points';
+import type { PointRecord, PointsApiResponse } from '@shared/points';
 import type { VisibleItem, WorkerRequest, WorkerResponse } from '@shared/worker';
 
 type ClusterProperties = {
@@ -17,6 +17,7 @@ type QueriedFeature = Feature<Point, PointRecord | ClusterProperties>;
 
 const workerScope = self as DedicatedWorkerGlobalScope;
 let clusterIndex: Supercluster<PointRecord, ClusterProperties> | null = null;
+const jsonDecoder = new TextDecoder();
 
 function postMessage(message: WorkerResponse): void {
   workerScope.postMessage(message);
@@ -65,20 +66,46 @@ function ensureIndex(): Supercluster<PointRecord, ClusterProperties> {
   return clusterIndex;
 }
 
+function parsePointsPayload(jsonBuffer: ArrayBuffer): PointsApiResponse {
+  const json = jsonDecoder.decode(new Uint8Array(jsonBuffer));
+  const payload = JSON.parse(json) as PointsApiResponse;
+
+  if (!payload || !Array.isArray(payload.points)) {
+    throw new Error('Worker received an invalid points payload');
+  }
+
+  return payload;
+}
+
 workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
 
   try {
     switch (message.type) {
       case 'build-index': {
-        const startedAt = performance.now();
+        const parseStartedAt = performance.now();
+        const payload = parsePointsPayload(message.payload.jsonBuffer);
+        const parseDurationMs = performance.now() - parseStartedAt;
+        const points = payload.points;
+
+        postMessage({
+          requestId: message.requestId,
+          type: 'build-index:progress',
+          payload: {
+            phase: 'indexing',
+            count: points.length,
+            parseDurationMs,
+          },
+        });
+
+        const indexBuildStartedAt = performance.now();
         const index = new Supercluster<PointRecord, ClusterProperties>({
           radius: message.payload.options.radius,
           maxZoom: message.payload.options.maxZoom,
           minZoom: message.payload.options.minZoom,
         });
 
-        const features: IndexedFeature[] = message.payload.points.map((point) => ({
+        const features: IndexedFeature[] = points.map((point) => ({
           type: 'Feature',
           geometry: {
             type: 'Point',
@@ -93,8 +120,9 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
           requestId: message.requestId,
           type: 'build-index:success',
           payload: {
-            count: message.payload.points.length,
-            durationMs: performance.now() - startedAt,
+            count: points.length,
+            parseDurationMs,
+            indexBuildDurationMs: performance.now() - indexBuildStartedAt,
           },
         });
         break;

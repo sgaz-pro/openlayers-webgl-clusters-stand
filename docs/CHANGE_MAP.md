@@ -25,7 +25,13 @@ Phase state machine:
 
 Byte progress implementation:
 
-- `packages/app/src/api/downloadJsonText.ts`
+- `packages/app/src/api/downloadJsonBuffer.ts`
+
+Worker-side parse/index handoff:
+
+- `packages/app/src/workers/workerClient.ts`
+- `packages/app/src/workers/supercluster.worker.ts`
+- `shared/worker.ts`
 
 Shared request defaults:
 

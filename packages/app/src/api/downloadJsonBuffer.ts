@@ -4,8 +4,8 @@ export interface DownloadProgressSnapshot {
   ratio: number | null;
 }
 
-export interface DownloadTextResult {
-  text: string;
+export interface DownloadBufferResult {
+  buffer: ArrayBuffer;
   loadedBytes: number;
   totalBytes: number | null;
 }
@@ -22,11 +22,11 @@ function mergeChunks(chunks: Uint8Array[], totalLength: number): Uint8Array {
   return merged;
 }
 
-export async function downloadJsonText(
+export async function downloadJsonBuffer(
   url: string,
   signal: AbortSignal,
   onProgress: (snapshot: DownloadProgressSnapshot) => void,
-): Promise<DownloadTextResult> {
+): Promise<DownloadBufferResult> {
   const response = await fetch(url, { signal });
 
   if (!response.ok) {
@@ -37,14 +37,14 @@ export async function downloadJsonText(
   const totalBytes = totalBytesHeader ? Number.parseInt(totalBytesHeader, 10) : null;
 
   if (!response.body) {
-    const text = await response.text();
-    const loadedBytes = new TextEncoder().encode(text).byteLength;
+    const buffer = await response.arrayBuffer();
+    const loadedBytes = buffer.byteLength;
     onProgress({
       loadedBytes,
       totalBytes,
       ratio: totalBytes ? loadedBytes / totalBytes : null,
     });
-    return { text, loadedBytes, totalBytes };
+    return { buffer, loadedBytes, totalBytes };
   }
 
   const reader = response.body.getReader();
@@ -79,12 +79,10 @@ export async function downloadJsonText(
   }
 
   const merged = mergeChunks(chunks, loadedBytes);
-  const text = new TextDecoder().decode(merged);
 
   return {
-    text,
+    buffer: merged.buffer as ArrayBuffer,
     loadedBytes,
     totalBytes,
   };
 }
-

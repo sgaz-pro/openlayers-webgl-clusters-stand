@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { DatasetQuery, PointsApiResponse } from '@shared/points';
 import { DEFAULT_DATASET_QUERY } from '../constants';
-import { downloadJsonText } from '../api/downloadJsonText';
+import type { DatasetQuery } from '@shared/points';
+import { downloadJsonBuffer } from '../api/downloadJsonBuffer';
 import type { RootStore } from './RootStore';
 
 export type LoadingPhase = 'idle' | 'downloading' | 'parsing' | 'indexing' | 'ready' | 'error';
@@ -59,7 +59,7 @@ export class DatasetStore {
 
     try {
       const url = `/api/points?count=${query.count}&seed=${query.seed}&mode=${query.mode}`;
-      const download = await downloadJsonText(url, abortController.signal, (progress) => {
+      const download = await downloadJsonBuffer(url, abortController.signal, (progress) => {
         if (this.abortController !== abortController) {
           return;
         }
@@ -80,17 +80,17 @@ export class DatasetStore {
         this.totalBytes = download.totalBytes;
       });
 
-      const parseStartedAt = performance.now();
-      const payload = JSON.parse(download.text) as PointsApiResponse;
-      const parseDurationMs = performance.now() - parseStartedAt;
+      const buildResult = await this.rootStore.clusterStore.buildIndex(download.buffer, (progress) => {
+        if (this.abortController !== abortController) {
+          return;
+        }
 
-      runInAction(() => {
-        this.phase = 'indexing';
-        this.countLoaded = payload.points.length;
-        this.parseDurationMs = parseDurationMs;
+        runInAction(() => {
+          this.phase = progress.phase;
+          this.countLoaded = progress.count;
+          this.parseDurationMs = progress.parseDurationMs;
+        });
       });
-
-      await this.rootStore.clusterStore.buildIndex(payload.points);
 
       if (this.abortController !== abortController) {
         return;
@@ -98,6 +98,8 @@ export class DatasetStore {
 
       runInAction(() => {
         this.phase = 'ready';
+        this.countLoaded = buildResult.count;
+        this.parseDurationMs = buildResult.parseDurationMs;
       });
     } catch (error) {
       if (abortController.signal.aborted) {

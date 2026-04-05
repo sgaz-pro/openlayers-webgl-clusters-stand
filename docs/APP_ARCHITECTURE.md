@@ -13,7 +13,7 @@
 - `src/stores/RootStore.ts`: store composition and React context
 - `src/stores/DatasetStore.ts`: dataset loading state machine
 - `src/stores/ClusterStore.ts`: worker-backed cluster state
-- `src/api/downloadJsonText.ts`: streamed fetch with progress tracking
+- `src/api/downloadJsonBuffer.ts`: streamed fetch with progress tracking and buffer handoff
 - `src/workers/workerClient.ts`: request/response wrapper for the worker
 - `src/workers/supercluster.worker.ts`: `supercluster` index build and query logic
 - `src/map/layers.ts`: WebGL points layer and label vector layer
@@ -26,8 +26,8 @@
 3. User clicks `Подключиться`.
 4. `DatasetStore.loadDataset()` requests `/api/points`.
 5. Download progress updates while bytes stream in.
-6. JSON parsing happens on the main thread.
-7. Parsed points go to the worker for indexing.
+6. The downloaded `ArrayBuffer` is transferred into the worker.
+7. The worker decodes JSON, parses it, and then builds the `supercluster` index.
 8. `ClusterStore` becomes ready and the current map extent is queried.
 9. Map updates cluster/point WebGL rendering and optional labels.
 
@@ -39,12 +39,13 @@
 - owns request query
 - tracks byte progress
 - tracks parse duration
+- hands the raw response buffer to the worker
 - resets cluster state before a new load
 
 ### `ClusterStore`
 
 - owns worker instance
-- builds the index
+- builds the index from a transferred JSON buffer
 - queries clusters for current bbox/zoom
 - exposes visible item counts and timings
 - resolves `getClusterExpansionZoom()`
@@ -74,11 +75,18 @@ To change startup UX:
 To change loading phases or progress semantics:
 
 - `src/stores/DatasetStore.ts`
+- `src/api/downloadJsonBuffer.ts`
 
 To change map click behavior:
 
 - `src/components/MapView.tsx`
 - `src/stores/ClusterStore.ts`
+
+To change worker parsing/index build behavior:
+
+- `src/workers/workerClient.ts`
+- `src/workers/supercluster.worker.ts`
+- `../../shared/worker.ts`
 
 To change cluster visuals:
 
@@ -88,4 +96,3 @@ To change label thresholds or limits:
 
 - `src/constants.ts`
 - `src/map/featureFactories.ts`
-

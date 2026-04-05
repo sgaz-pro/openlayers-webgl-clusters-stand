@@ -1,16 +1,18 @@
 import type {
   BuildIndexResponse,
+  BuildIndexProgressResponse,
   ClusterIndexOptions,
   GetExpansionZoomResponse,
   QueryClustersResponse,
   WorkerRequest,
   WorkerResponse,
 } from '@shared/worker';
-import type { LonLatBbox, PointRecord } from '@shared/points';
+import type { LonLatBbox } from '@shared/points';
 
 interface PendingRequest {
   resolve: (payload: any) => void;
   reject: (reason?: unknown) => void;
+  onProgress?: (message: WorkerResponse) => void;
 }
 
 export class SuperclusterWorkerClient {
@@ -28,6 +30,11 @@ export class SuperclusterWorkerClient {
       const pendingRequest = this.pending.get(message.requestId);
 
       if (!pendingRequest) {
+        return;
+      }
+
+      if (message.type === 'build-index:progress') {
+        pendingRequest.onProgress?.(message);
         return;
       }
 
@@ -52,7 +59,13 @@ export class SuperclusterWorkerClient {
     };
   }
 
-  private postRequest<TPayload>(message: Omit<WorkerRequest, 'requestId'>): Promise<TPayload> {
+  private postRequest<TPayload>(
+    message: Omit<WorkerRequest, 'requestId'>,
+    options?: {
+      onProgress?: (message: WorkerResponse) => void;
+      transfer?: Transferable[];
+    },
+  ): Promise<TPayload> {
     const requestId = `req-${this.requestSequence}`;
     this.requestSequence += 1;
     const request = {
@@ -61,16 +74,30 @@ export class SuperclusterWorkerClient {
     } as WorkerRequest;
 
     return new Promise<TPayload>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject });
-      this.worker.postMessage(request);
+      this.pending.set(requestId, { resolve, reject, onProgress: options?.onProgress });
+      this.worker.postMessage(request, options?.transfer ?? []);
     });
   }
 
-  buildIndex(points: PointRecord[], options: ClusterIndexOptions): Promise<BuildIndexResponse['payload']> {
-    return this.postRequest({
-      type: 'build-index',
-      payload: { points, options },
-    });
+  buildIndex(
+    jsonBuffer: ArrayBuffer,
+    options: ClusterIndexOptions,
+    onProgress?: (payload: BuildIndexProgressResponse['payload']) => void,
+  ): Promise<BuildIndexResponse['payload']> {
+    return this.postRequest(
+      {
+        type: 'build-index',
+        payload: { jsonBuffer, options },
+      },
+      {
+        onProgress: (message) => {
+          if (message.type === 'build-index:progress') {
+            onProgress?.(message.payload);
+          }
+        },
+        transfer: [jsonBuffer],
+      },
+    );
   }
 
   queryClusters(bbox: LonLatBbox, zoom: number): Promise<QueryClustersResponse['payload']> {

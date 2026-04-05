@@ -1,6 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { LonLatBbox, PointRecord } from '@shared/points';
-import type { VisibleItem } from '@shared/worker';
+import type { LonLatBbox } from '@shared/points';
+import type { BuildIndexProgressResponse, BuildIndexResponse, VisibleItem } from '@shared/worker';
 import { INITIAL_VIEW, WORKER_INDEX_OPTIONS } from '../constants';
 import { SuperclusterWorkerClient } from '../workers/workerClient';
 import type { RootStore } from './RootStore';
@@ -19,6 +19,7 @@ export class ClusterStore {
   private readonly rootStore: RootStore;
   private readonly workerClient = new SuperclusterWorkerClient();
   private querySerial = 0;
+  private buildSerial = 0;
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore;
@@ -30,6 +31,7 @@ export class ClusterStore {
   }
 
   reset(): void {
+    this.buildSerial += 1;
     this.querySerial += 1;
     this.visibleItems = [];
     this.indexBuildDurationMs = 0;
@@ -40,15 +42,26 @@ export class ClusterStore {
     this.isIndexReady = false;
   }
 
-  async buildIndex(points: PointRecord[]): Promise<void> {
+  async buildIndex(
+    jsonBuffer: ArrayBuffer,
+    onProgress?: (payload: BuildIndexProgressResponse['payload']) => void,
+  ): Promise<BuildIndexResponse['payload']> {
+    const buildSerial = this.buildSerial + 1;
+    this.buildSerial = buildSerial;
     this.querySerial += 1;
-    const result = await this.workerClient.buildIndex(points, WORKER_INDEX_OPTIONS);
+    const result = await this.workerClient.buildIndex(jsonBuffer, WORKER_INDEX_OPTIONS, onProgress);
+
+    if (buildSerial !== this.buildSerial) {
+      return result;
+    }
 
     runInAction(() => {
-      this.indexBuildDurationMs = result.durationMs;
+      this.indexBuildDurationMs = result.indexBuildDurationMs;
       this.isIndexReady = true;
       this.indexRevision += 1;
     });
+
+    return result;
   }
 
   async queryClusters(bbox: LonLatBbox, zoom: number): Promise<void> {

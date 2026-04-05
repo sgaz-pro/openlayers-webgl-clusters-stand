@@ -11,8 +11,8 @@ Core idea:
 
 - server generates deterministic synthetic geodata
 - app downloads one large JSON payload with progress
-- app parses on the main thread
-- app builds a `supercluster` index in a Web Worker
+- app transfers the downloaded JSON buffer into a Web Worker
+- worker parses JSON and builds the `supercluster` index off-thread
 - map re-queries clusters only on `moveend`
 
 ## Top-level map
@@ -52,7 +52,9 @@ If you need to change dataset request parameters:
 If you need to change loading/progress behavior:
 
 - `packages/app/src/stores/DatasetStore.ts`
-- `packages/app/src/api/downloadJsonText.ts`
+- `packages/app/src/api/downloadJsonBuffer.ts`
+- `packages/app/src/workers/workerClient.ts`
+- `shared/worker.ts`
 
 If you need to change clustering behavior:
 

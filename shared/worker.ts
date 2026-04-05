@@ -1,4 +1,4 @@
-import type { LonLatBbox, PointCategory, PointRecord } from './points';
+import type { LonLatBbox, PointCategory } from './points';
 
 export interface ClusterIndexOptions {
   radius: number;
@@ -15,7 +15,7 @@ export interface WorkerMessageBase<TType extends string, TPayload> {
 export type BuildIndexRequest = WorkerMessageBase<
   'build-index',
   {
-    points: PointRecord[];
+    jsonBuffer: ArrayBuffer;
     options: ClusterIndexOptions;
   }
 >;
@@ -58,11 +58,21 @@ export interface LeafPointItem {
 
 export type VisibleItem = ClusterItem | LeafPointItem;
 
+export type BuildIndexProgressResponse = WorkerMessageBase<
+  'build-index:progress',
+  {
+    phase: 'indexing';
+    count: number;
+    parseDurationMs: number;
+  }
+>;
+
 export type BuildIndexResponse = WorkerMessageBase<
   'build-index:success',
   {
     count: number;
-    durationMs: number;
+    parseDurationMs: number;
+    indexBuildDurationMs: number;
   }
 >;
 
@@ -90,6 +100,7 @@ export type WorkerErrorResponse = WorkerMessageBase<
 >;
 
 export type WorkerResponse =
+  | BuildIndexProgressResponse
   | BuildIndexResponse
   | QueryClustersResponse
   | GetExpansionZoomResponse

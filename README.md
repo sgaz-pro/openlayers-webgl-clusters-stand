@@ -5,7 +5,7 @@ Monorepo demo on TypeScript with two workspace packages:
 - `app`: React + Vite + MobX + OpenLayers + `supercluster`
 - `server`: Node.js HTTP server with deterministic synthetic geodata generation
 
-The demo loads a large dataset with one `GET` request, shows download progress, parses JSON on the main thread, builds the `supercluster` index in a Web Worker, and re-queries visible clusters only on `moveend`.
+The demo loads a large dataset with one `GET` request, shows download progress, transfers the downloaded JSON buffer into a Web Worker, parses and indexes it off-thread, and re-queries visible clusters only on `moveend`.
 
 ## Stack
 
@@ -142,9 +142,9 @@ Responses include `Vary: Accept-Encoding`, and unsupported-only encoding request
 ### Worker flow
 
 1. `DatasetStore` downloads `/api/points` and updates progress.
-2. The response text is parsed on the main thread during the `parsing` phase.
-3. Parsed points are sent to [`packages/app/src/workers/supercluster.worker.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/workers/supercluster.worker.ts).
-4. The worker builds a `supercluster` index and answers:
+2. The downloaded JSON buffer is transferred to [`packages/app/src/workers/supercluster.worker.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/workers/supercluster.worker.ts).
+3. The worker decodes, parses, and indexes the payload while `DatasetStore` moves from `parsing` to `indexing`.
+4. The worker answers:
    `build-index`, `query-clusters`, `get-expansion-zoom`.
 5. `ClusterStore` updates visible items and timings in MobX.
 
