@@ -18,10 +18,10 @@ The demo loads a large dataset with one `GET` request, shows download progress, 
 
 ## Extra docs
 
-- [`AGENT_CONTEXT.md`](/home/supeternity/src/openlayers-largecluster-demo/AGENT_CONTEXT.md): fast project orientation
-- [`docs/APP_ARCHITECTURE.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/APP_ARCHITECTURE.md): frontend structure and runtime flow
-- [`docs/SERVER_ARCHITECTURE.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/SERVER_ARCHITECTURE.md): backend structure and API notes
-- [`docs/CHANGE_MAP.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/CHANGE_MAP.md): where to edit common behaviors
+- [`AGENT_CONTEXT.md`](./AGENT_CONTEXT.md): fast project orientation
+- [`docs/APP_ARCHITECTURE.md`](./docs/APP_ARCHITECTURE.md): frontend structure and runtime flow
+- [`docs/SERVER_ARCHITECTURE.md`](./docs/SERVER_ARCHITECTURE.md): backend structure and API notes
+- [`docs/CHANGE_MAP.md`](./docs/CHANGE_MAP.md): where to edit common behaviors
 
 ## Workspace layout
 
@@ -77,7 +77,7 @@ Run the app in another terminal:
 npm run dev:app
 ```
 
-Open `http://0.0.0.0:5173`.
+Open `http://localhost:5173`.
 
 Production build:
 
@@ -131,29 +131,29 @@ Responses include `Vary: Accept-Encoding`, and unsupported-only encoding request
 
 ### Shared contracts
 
-- [`shared/points.ts`](/home/supeternity/src/openlayers-largecluster-demo/shared/points.ts): API and dataset types
-- [`shared/worker.ts`](/home/supeternity/src/openlayers-largecluster-demo/shared/worker.ts): worker request/response protocol
+- [`shared/points.ts`](./shared/points.ts): API and dataset types
+- [`shared/worker.ts`](./shared/worker.ts): worker request/response protocol
 
 ### MobX stores
 
-- [`packages/app/src/stores/DatasetStore.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/stores/DatasetStore.ts): loading phases, progress, parse timing, error handling
-- [`packages/app/src/stores/ClusterStore.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/stores/ClusterStore.ts): worker RPC, cluster queries, map statistics
-- [`packages/app/src/stores/RootStore.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/stores/RootStore.ts): composition root for stores and React context
+- [`packages/app/src/stores/DatasetStore.ts`](./packages/app/src/stores/DatasetStore.ts): loading phases, progress, parse timing, error handling
+- [`packages/app/src/stores/ClusterStore.ts`](./packages/app/src/stores/ClusterStore.ts): worker RPC, cluster queries, map statistics and applied cluster settings
+- [`packages/app/src/stores/RootStore.ts`](./packages/app/src/stores/RootStore.ts): composition root for stores and React context
 
 ### Worker flow
 
 1. `DatasetStore` downloads `/api/points` and updates progress.
-2. The downloaded JSON buffer is transferred to [`packages/app/src/workers/supercluster.worker.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/workers/supercluster.worker.ts).
+2. The downloaded JSON buffer is transferred to [`packages/app/src/workers/supercluster.worker.ts`](./packages/app/src/workers/supercluster.worker.ts).
 3. The worker decodes, parses, and indexes the payload while `DatasetStore` moves from `parsing` to `indexing`.
-4. The worker answers:
-   `build-index`, `query-clusters`, `get-expansion-zoom`.
-5. `ClusterStore` updates visible items and timings in MobX.
+4. The worker answers `build-index`, `rebuild-index`, `query-clusters` and `get-expansion-zoom`.
+5. `ClusterStore` updates visible items and timings in MobX and can rebuild the index when cluster settings change.
 
 ### Rendering strategy
 
 - Base map: OSM tile layer in EPSG:3857
-- Cluster and single-point rendering: WebGL points layer
-- Text labels: separate `VectorLayer` only for visible leaf points on high zoom
+- Clusters: WebGL circles
+- Single points: category-based SVG icons
+- Text labels: separate `VectorLayer` for visible leaf points, rendered to the right of the icon
 - Cluster refresh: only on `moveend`
 - Cluster click: `getClusterExpansionZoom()` in the worker, then view animation
 
@@ -171,6 +171,7 @@ The UI exposes these stats:
 
 - count loaded
 - download progress
+- download duration
 - parse duration
 - index build duration
 - last cluster query duration
@@ -181,7 +182,7 @@ The UI exposes these stats:
 
 ## Notes for experiments
 
-- Change dataset size with the request query in [`packages/app/src/constants.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/constants.ts).
-- Tweak clustering radius and max zoom in the same constants file.
-- Adjust label density in [`packages/app/src/map/featureFactories.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/app/src/map/featureFactories.ts).
-- Extend synthetic generation modes in [`packages/server/src/generators/syntheticDataset.ts`](/home/supeternity/src/openlayers-largecluster-demo/packages/server/src/generators/syntheticDataset.ts).
+- Change dataset size defaults in [`packages/app/src/constants.ts`](./packages/app/src/constants.ts).
+- Tweak cluster behavior live in the `Параметры отображения` panel, or change defaults in [`packages/app/src/constants.ts`](./packages/app/src/constants.ts).
+- Adjust label generation in [`packages/app/src/map/featureFactories.ts`](./packages/app/src/map/featureFactories.ts).
+- Extend synthetic generation modes in [`packages/server/src/generators/syntheticDataset.ts`](./packages/server/src/generators/syntheticDataset.ts).
