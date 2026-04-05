@@ -1,4 +1,5 @@
 import type Feature from 'ol/Feature.js';
+import type { FeatureLike } from 'ol/Feature.js';
 import type Point from 'ol/geom/Point.js';
 import WebGLPointsLayer from 'ol/layer/WebGLPoints.js';
 import VectorLayer from 'ol/layer/Vector.js';
@@ -60,8 +61,8 @@ function getPointIconStyle(category: PointCategory): Style {
 }
 
 export function createClusterLayer(source: VectorSource<Feature<Point>>) {
-  return new WebGLPointsLayer({
-    source,
+  return new WebGLPointsLayer<VectorSource<FeatureLike>>({
+    source: source as unknown as VectorSource<FeatureLike>,
     style: CLUSTER_STYLE,
     zIndex: 20,
   });
