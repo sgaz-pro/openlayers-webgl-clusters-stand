@@ -1,14 +1,18 @@
 import { observer } from 'mobx-react-lite';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ConnectionPanel } from '../components/ConnectionPanel';
-import { DebugPanel } from '../components/DebugPanel';
+import { DisplayPanel } from '../components/DisplayPanel';
 import { MapView } from '../components/MapView';
+import { MetricsPanel } from '../components/MetricsPanel';
 import { useRootStore } from '../stores/RootStore';
 
 export const App = observer(function App() {
   const rootStore = useRootStore();
+  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
 
   useEffect(() => {
+    void rootStore.healthStore.checkHealth();
+
     return () => {
       rootStore.dispose();
     };
@@ -16,24 +20,72 @@ export const App = observer(function App() {
 
   return (
     <main className="app-shell">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">Monorepo demo</p>
-          <h1>OpenLayers + Supercluster with controlled startup</h1>
-          <p className="hero-text">
-            Можно выбирать между глобальным смешанным датасетом и плотным промышленным кластером.
-            В обоих режимах данные приходят одним GET-запросом, JSON разбирается на main thread,
-            а <code>supercluster</code> строит индекс в Web Worker.
-          </p>
+      <MapView />
+      {!isMobilePanelOpen ? (
+        <button
+          type="button"
+          className="mobile-panel-toggle"
+          aria-label="Открыть панель управления"
+          onClick={() => {
+            setIsMobilePanelOpen(true);
+          }}
+        >
+          ☰
+        </button>
+      ) : null}
+
+      <button
+        type="button"
+        className={`panel-backdrop${isMobilePanelOpen ? ' is-visible' : ''}`}
+        aria-label="Закрыть панель"
+        onClick={() => {
+          setIsMobilePanelOpen(false);
+        }}
+      />
+
+      <aside className={`control-panel${isMobilePanelOpen ? ' is-open' : ''}`}>
+        <div className="control-panel__surface">
+          <div className="control-panel__actions">
+            <button
+              type="button"
+              className="control-panel__close"
+              aria-label="Закрыть панель управления"
+              onClick={() => {
+                setIsMobilePanelOpen(false);
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="control-panel__scroll">
+            <details className="panel-section" open>
+              <summary>Параметры сервера и подключения</summary>
+              <div className="panel-section__body">
+                <ConnectionPanel
+                  onConnect={() => {
+                    setIsMobilePanelOpen(false);
+                  }}
+                />
+              </div>
+            </details>
+
+            <details className="panel-section" open>
+              <summary>Параметры отображения</summary>
+              <div className="panel-section__body">
+                <DisplayPanel />
+              </div>
+            </details>
+
+            <details className="panel-section" open>
+              <summary>Метрики</summary>
+              <div className="panel-section__body">
+                <MetricsPanel />
+              </div>
+            </details>
+          </div>
         </div>
-
-        <ConnectionPanel />
-      </section>
-
-      <section className="workspace-grid">
-        <MapView />
-        <DebugPanel />
-      </section>
+      </aside>
     </main>
   );
 });

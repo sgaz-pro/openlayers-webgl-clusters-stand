@@ -26,20 +26,28 @@ Core idea:
 
 - `packages/server/src/index.ts`: server boot, host/port, route handling
 - `packages/server/src/generators/syntheticDataset.ts`: synthetic point generation
-- `packages/app/src/app/App.tsx`: main UI shell
-- `packages/app/src/components/ConnectionPanel.tsx`: controlled startup form
+- `packages/app/src/app/App.tsx`: fullscreen app shell with overlay control panel
+- `packages/app/src/components/ConnectionPanel.tsx`: server/connection section with native form controls
+- `packages/app/src/components/DisplayPanel.tsx`: placeholder display settings section
+- `packages/app/src/components/MetricsPanel.tsx`: runtime metrics section
 - `packages/app/src/components/MapView.tsx`: OpenLayers map lifecycle and click-to-zoom
 - `packages/app/src/stores/DatasetStore.ts`: load phases and progress
+- `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
 - `packages/app/src/stores/ClusterStore.ts`: worker RPC and visible cluster state
 - `packages/app/src/workers/supercluster.worker.ts`: off-thread cluster index
 
 ## Current runtime behavior
 
-- App startup is manual, not automatic.
+- App opens with a fullscreen map and a right overlay control panel.
+- On mobile, the right panel is hidden behind a burger and slides over the map.
+- The right panel contains three collapsible sections: server/connection, display placeholder, metrics.
+- App runs a health check on mount and can refresh it manually from the connection section.
+- Dataset startup is still manual.
 - User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
 - Loading phases are: `idle`, `downloading`, `parsing`, `indexing`, `ready`, `error`.
 - The app targets `0.0.0.0` for dev host binding.
 - Supported dataset modes are `mixed` and `industrial`.
+- The client shell currently uses native browser controls and lightweight custom CSS.
 
 ## Common change map
 
@@ -48,6 +56,12 @@ If you need to change dataset request parameters:
 - `packages/app/src/components/ConnectionPanel.tsx`
 - `packages/app/src/constants.ts`
 - `packages/server/src/config.ts`
+
+If you need to change health check UX:
+
+- `packages/app/src/stores/HealthStore.ts`
+- `packages/app/src/api/fetchHealth.ts`
+- `packages/app/src/components/ConnectionPanel.tsx`
 
 If you need to change loading/progress behavior:
 
@@ -68,6 +82,14 @@ If you need to change map rendering:
 - `packages/app/src/map/layers.ts`
 - `packages/app/src/map/featureFactories.ts`
 
+If you need to change the overlay shell / right panel layout:
+
+- `packages/app/src/app/App.tsx`
+- `packages/app/src/app/App.css`
+- `packages/app/src/components/ConnectionPanel.tsx`
+- `packages/app/src/components/DisplayPanel.tsx`
+- `packages/app/src/components/MetricsPanel.tsx`
+
 If you need to change server-side data realism:
 
 - `packages/server/src/generators/syntheticDataset.ts`
@@ -81,6 +103,7 @@ If you need to change server-side data realism:
 - do not render labels for all points at once
 - keep `supercluster` indexing in a Web Worker
 - keep cluster refresh on `moveend`, not per frame
+- keep the map as the primary fullscreen surface; the control panel should stay an overlay, not reflow the map
 
 ## Quick commands
 
