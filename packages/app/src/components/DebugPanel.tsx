@@ -21,11 +21,13 @@ export const DebugPanel = observer(function DebugPanel() {
         <div>
           <dt>download progress</dt>
           <dd>
-            {formatProgress(
-              datasetStore.downloadedBytes,
-              datasetStore.totalBytes,
-              datasetStore.downloadProgressRatio,
-            )}
+            {datasetStore.phase === 'idle'
+              ? 'waiting for manual connect'
+              : formatProgress(
+                  datasetStore.downloadedBytes,
+                  datasetStore.totalBytes,
+                  datasetStore.downloadProgressRatio,
+                )}
           </dd>
         </div>
 
@@ -77,4 +79,3 @@ export const DebugPanel = observer(function DebugPanel() {
     </aside>
   );
 });
-

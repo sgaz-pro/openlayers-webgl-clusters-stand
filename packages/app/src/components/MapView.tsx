@@ -178,6 +178,7 @@ export const MapView = observer(function MapView() {
       <div className="map-overlay">
         <div className="overlay-chip">EPSG:3857 / OSM / WebGL points</div>
         {phase !== 'ready' ? <div className="overlay-status">phase: {phase}</div> : null}
+        {phase === 'idle' ? <div className="overlay-status">Нажмите «Подключиться», чтобы запустить загрузку</div> : null}
         {errorMessage ? <div className="overlay-error">{errorMessage}</div> : null}
       </div>
     </section>

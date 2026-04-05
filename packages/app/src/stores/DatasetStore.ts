@@ -4,10 +4,10 @@ import { DEFAULT_DATASET_QUERY } from '../constants';
 import { downloadJsonText } from '../api/downloadJsonText';
 import type { RootStore } from './RootStore';
 
-export type LoadingPhase = 'downloading' | 'parsing' | 'indexing' | 'ready' | 'error';
+export type LoadingPhase = 'idle' | 'downloading' | 'parsing' | 'indexing' | 'ready' | 'error';
 
 export class DatasetStore {
-  phase: LoadingPhase = 'downloading';
+  phase: LoadingPhase = 'idle';
   query: DatasetQuery = DEFAULT_DATASET_QUERY;
   countLoaded = 0;
   downloadedBytes = 0;
@@ -32,7 +32,7 @@ export class DatasetStore {
   }
 
   get isBusy(): boolean {
-    return this.phase !== 'ready' && this.phase !== 'error';
+    return this.phase === 'downloading' || this.phase === 'parsing' || this.phase === 'indexing';
   }
 
   abort(): void {
