@@ -9,7 +9,7 @@ import {
   SUPPORTED_MODES,
 } from './config.js';
 import { generatePointsDataset } from './generators/syntheticDataset.js';
-import { sendJson, streamJson } from './http/respond.js';
+import { sendJson, sendJsonWithCompression } from './http/respond.js';
 
 function parseInteger(value: string | null, fallback: number): number {
   if (!value) {
@@ -64,7 +64,10 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   if (request.method === 'GET' && url.pathname === '/api/points') {
     const query = parseDatasetQuery(url);
     const dataset = generatePointsDataset(query);
-    await streamJson(response, 200, dataset, STREAM_CHUNK_SIZE);
+    await sendJsonWithCompression(response, 200, dataset, {
+      acceptEncoding: request.headers['accept-encoding'],
+      chunkSize: STREAM_CHUNK_SIZE,
+    });
     return;
   }
 

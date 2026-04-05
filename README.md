@@ -123,6 +123,8 @@ Each point contains:
 - `weight`
 
 The server builds the response in memory and streams JSON in chunks with `Content-Length`, so the client can display real progress for a single request.
+For `GET /api/points`, the server also honors `Accept-Encoding` and prefers `br`, then `gzip`, then identity.
+Responses include `Vary: Accept-Encoding`, and unsupported-only encoding requests return `406 Not Acceptable`.
 
 ## App architecture
 
