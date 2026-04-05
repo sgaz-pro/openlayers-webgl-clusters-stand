@@ -21,8 +21,7 @@ export const App = observer(function App() {
           <p className="eyebrow">Monorepo demo</p>
           <h1>OpenLayers + Supercluster with controlled startup</h1>
           <p className="hero-text">
-            Загрузка больше не стартует автоматически: сначала задайте количество observable и
-            нажмите <code>Подключиться</code>. После этого датасет придёт одним GET-запросом,
+            Датасет придёт одним GET-запросом,
             разбор JSON выполнится на main thread, а <code>supercluster</code> продолжит строить
             индекс в Web Worker.
           </p>
