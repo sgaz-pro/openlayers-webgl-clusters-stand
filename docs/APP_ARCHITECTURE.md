@@ -62,6 +62,7 @@
 - owns worker instance
 - builds the index from a transferred JSON buffer
 - queries clusters for current bbox/zoom
+- compresses cluster query zoom near the maximum view zoom so dense areas reveal mostly on the last two zoom levels
 - exposes visible item counts and timings
 - resolves `getClusterExpansionZoom()`
 

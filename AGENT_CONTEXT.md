@@ -54,6 +54,7 @@ Core idea:
 - Clusters are rendered as circles, while visible leaf points use category-specific SVG icons.
 - Point names are rendered in a separate decluttered layer to the right of the icon.
 - At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
+- Cluster query zoom is intentionally compressed near the top of the zoom range so dense areas only fully раскрываются on the last two view zoom levels.
 
 ## Common change map
 

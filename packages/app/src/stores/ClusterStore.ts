@@ -1,9 +1,39 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { LonLatBbox } from '@shared/points';
 import type { BuildIndexProgressResponse, BuildIndexResponse, VisibleItem } from '@shared/worker';
-import { INITIAL_VIEW, WORKER_INDEX_OPTIONS } from '../constants';
+import { DENSE_CLUSTER_REVEAL_VIEW_ZOOM, INITIAL_VIEW, WORKER_INDEX_OPTIONS } from '../constants';
 import { SuperclusterWorkerClient } from '../workers/workerClient';
 import type { RootStore } from './RootStore';
+
+function toClusterQueryZoom(viewZoom: number): number {
+  const roundedZoom = Math.max(WORKER_INDEX_OPTIONS.minZoom, Math.round(viewZoom));
+  const maxClusterZoom = WORKER_INDEX_OPTIONS.maxZoom;
+
+  if (roundedZoom < DENSE_CLUSTER_REVEAL_VIEW_ZOOM) {
+    return Math.min(roundedZoom, maxClusterZoom - 2);
+  }
+
+  if (roundedZoom === DENSE_CLUSTER_REVEAL_VIEW_ZOOM) {
+    return maxClusterZoom - 1;
+  }
+
+  return Math.min(roundedZoom, maxClusterZoom + 1);
+}
+
+function toViewZoomForExpansion(clusterZoom: number): number {
+  const roundedZoom = Math.round(clusterZoom);
+  const maxClusterZoom = WORKER_INDEX_OPTIONS.maxZoom;
+
+  if (roundedZoom <= maxClusterZoom - 2) {
+    return roundedZoom;
+  }
+
+  if (roundedZoom === maxClusterZoom - 1) {
+    return DENSE_CLUSTER_REVEAL_VIEW_ZOOM;
+  }
+
+  return INITIAL_VIEW.maxZoom;
+}
 
 export class ClusterStore {
   visibleItems: VisibleItem[] = [];
@@ -71,7 +101,7 @@ export class ClusterStore {
 
     const serial = this.querySerial + 1;
     this.querySerial = serial;
-    const normalizedZoom = Math.max(WORKER_INDEX_OPTIONS.minZoom, Math.round(zoom));
+    const normalizedZoom = toClusterQueryZoom(zoom);
     const result = await this.workerClient.queryClusters(bbox, normalizedZoom);
 
     if (serial !== this.querySerial) {
@@ -91,7 +121,7 @@ export class ClusterStore {
 
   async getExpansionZoom(clusterId: number): Promise<number> {
     const result = await this.workerClient.getExpansionZoom(clusterId);
-    return result.zoom;
+    return toViewZoomForExpansion(result.zoom);
   }
 
   setRenderedLabels(count: number): void {
