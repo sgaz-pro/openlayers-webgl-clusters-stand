@@ -41,7 +41,7 @@ Core idea:
 - `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
 - `packages/app/src/stores/ClusterStore.ts`: worker RPC and visible cluster state
 - `packages/app/src/workers/supercluster.worker.ts`: off-thread cluster index
-- `.github/workflows/ci.yml`: typecheck, build and server smoke tests on `push`/`pull_request`
+- `.github/workflows/ci.yml`: typecheck and build on `push`/`pull_request`, server smoke test only on manual `workflow_dispatch`
 - `.github/workflows/codeql.yml`: scheduled CodeQL scan for JS/TS
 
 ## Current runtime behavior
