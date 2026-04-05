@@ -16,6 +16,13 @@ The demo loads a large dataset with one `GET` request, shows download progress, 
 - Node.js HTTP server on TypeScript
 - npm workspaces
 
+## Extra docs
+
+- [`AGENT_CONTEXT.md`](/home/supeternity/src/openlayers-largecluster-demo/AGENT_CONTEXT.md): fast project orientation
+- [`docs/APP_ARCHITECTURE.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/APP_ARCHITECTURE.md): frontend structure and runtime flow
+- [`docs/SERVER_ARCHITECTURE.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/SERVER_ARCHITECTURE.md): backend structure and API notes
+- [`docs/CHANGE_MAP.md`](/home/supeternity/src/openlayers-largecluster-demo/docs/CHANGE_MAP.md): where to edit common behaviors
+
 ## Workspace layout
 
 ```text
