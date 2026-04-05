@@ -21,9 +21,9 @@ export const App = observer(function App() {
           <p className="eyebrow">Monorepo demo</p>
           <h1>OpenLayers + Supercluster with controlled startup</h1>
           <p className="hero-text">
-            Датасет придёт одним GET-запросом,
-            разбор JSON выполнится на main thread, а <code>supercluster</code> продолжит строить
-            индекс в Web Worker.
+            Можно выбирать между глобальным смешанным датасетом и плотным промышленным кластером.
+            В обоих режимах данные приходят одним GET-запросом, JSON разбирается на main thread,
+            а <code>supercluster</code> строит индекс в Web Worker.
           </p>
         </div>
 

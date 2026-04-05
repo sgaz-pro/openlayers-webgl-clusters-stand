@@ -1,6 +1,11 @@
 import { observer } from 'mobx-react-lite';
 import { useMemo, useState, type FormEvent } from 'react';
-import { DEFAULT_DATASET_QUERY } from '../constants';
+import type { DatasetMode } from '@shared/points';
+import {
+  DATASET_MODE_LABELS,
+  DATASET_MODE_OPTIONS,
+  DEFAULT_DATASET_QUERY,
+} from '../constants';
 import { useRootStore } from '../stores/RootStore';
 
 const MIN_OBSERVABLE_COUNT = 1;
@@ -19,11 +24,17 @@ function clampObservableCount(value: string): number {
 export const ConnectionPanel = observer(function ConnectionPanel() {
   const { datasetStore } = useRootStore();
   const [observableCountInput, setObservableCountInput] = useState(String(DEFAULT_DATASET_QUERY.count));
+  const [datasetModeInput, setDatasetModeInput] = useState<DatasetMode>(DEFAULT_DATASET_QUERY.mode);
 
   const requestPreview = useMemo(() => {
     const count = clampObservableCount(observableCountInput);
-    return `/api/points?count=${count}&seed=${DEFAULT_DATASET_QUERY.seed}&mode=${DEFAULT_DATASET_QUERY.mode}`;
-  }, [observableCountInput]);
+    return `/api/points?count=${count}&seed=${DEFAULT_DATASET_QUERY.seed}&mode=${datasetModeInput}`;
+  }, [datasetModeInput, observableCountInput]);
+
+  const selectedModeDescription =
+    DATASET_MODE_OPTIONS.find((option) => option.value === datasetModeInput)?.description ??
+    DATASET_MODE_OPTIONS[0]?.description ??
+    '';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -34,6 +45,7 @@ export const ConnectionPanel = observer(function ConnectionPanel() {
     void datasetStore.loadDataset({
       ...DEFAULT_DATASET_QUERY,
       count,
+      mode: datasetModeInput,
     });
   };
 
@@ -47,8 +59,8 @@ export const ConnectionPanel = observer(function ConnectionPanel() {
 
         <dl className="parameter-list">
           <div>
-            <dt>mode</dt>
-            <dd>{DEFAULT_DATASET_QUERY.mode}</dd>
+            <dt>тип датасета</dt>
+            <dd>{DATASET_MODE_LABELS[datasetStore.query.mode]}</dd>
           </div>
           <div>
             <dt>seed</dt>
@@ -77,6 +89,25 @@ export const ConnectionPanel = observer(function ConnectionPanel() {
             }}
           />
         </label>
+
+        <label className="connection-field">
+          <span>Тип датасета</span>
+          <select
+            value={datasetModeInput}
+            disabled={datasetStore.isBusy}
+            onChange={(event) => {
+              setDatasetModeInput(event.target.value as DatasetMode);
+            }}
+          >
+            {DATASET_MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <p className="connection-description">{selectedModeDescription}</p>
 
         <button type="submit" className="connect-button" disabled={datasetStore.isBusy}>
           {datasetStore.isBusy ? 'Подключение…' : 'Подключиться'}

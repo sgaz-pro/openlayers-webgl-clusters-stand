@@ -104,6 +104,15 @@ Returns deterministic synthetic points:
 - corridor-like linear distributions
 - random noise
 
+### `GET /api/points?count=100000&seed=42&mode=industrial`
+
+Returns a concentrated industrial dataset around a large petrochemical complex:
+
+- dense process-unit clusters
+- service corridors and pipe-rack lines
+- storage, logistics, maintenance, safety and laboratory points
+- long engineering-style observable names generated with `faker`
+
 Each point contains:
 
 - `id`
@@ -146,6 +155,12 @@ The server builds the response in memory and streams JSON in chunks with `Conten
 - Cluster click: `getClusterExpansionZoom()` in the worker, then view animation
 
 This keeps the main thread focused on UI and OpenLayers rendering while the index stays off-thread.
+
+### Startup controls
+
+- The app starts in `idle`.
+- User chooses observable count and dataset type in the connection form.
+- Supported dataset types are `mixed` and `industrial`.
 
 ## Debug panel
 

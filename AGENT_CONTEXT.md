@@ -36,9 +36,10 @@ Core idea:
 ## Current runtime behavior
 
 - App startup is manual, not automatic.
-- User enters `Количество observable` and clicks `Подключиться`.
+- User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
 - Loading phases are: `idle`, `downloading`, `parsing`, `indexing`, `ready`, `error`.
 - The app targets `0.0.0.0` for dev host binding.
+- Supported dataset modes are `mixed` and `industrial`.
 
 ## Common change map
 
@@ -68,6 +69,7 @@ If you need to change map rendering:
 If you need to change server-side data realism:
 
 - `packages/server/src/generators/syntheticDataset.ts`
+- `packages/server/src/generators/industrialNames.ts`
 - `packages/server/src/generators/prng.ts`
 
 ## Constraints worth preserving
@@ -93,4 +95,3 @@ npm run build
 - `docs/APP_ARCHITECTURE.md`
 - `docs/SERVER_ARCHITECTURE.md`
 - `docs/CHANGE_MAP.md`
-
