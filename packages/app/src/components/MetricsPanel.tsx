@@ -23,7 +23,12 @@ export const MetricsPanel = observer(function MetricsPanel() {
               datasetStore.downloadedBytes,
               datasetStore.totalBytes,
               datasetStore.downloadProgressRatio,
+              datasetStore.downloadDurationMs,
             ),
+    },
+    {
+      label: 'Время загрузки',
+      value: formatDuration(datasetStore.downloadDurationMs),
     },
     {
       label: 'Парсинг JSON',

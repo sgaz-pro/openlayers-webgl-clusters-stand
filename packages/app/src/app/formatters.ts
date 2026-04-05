@@ -32,10 +32,20 @@ export function formatDuration(value: number): string {
   return `${(value / 1000).toFixed(2)} s`;
 }
 
-export function formatProgress(loadedBytes: number, totalBytes: number | null, ratio: number | null): string {
+export function formatProgress(
+  loadedBytes: number,
+  totalBytes: number | null,
+  ratio: number | null,
+  durationMs?: number,
+): string {
+  const durationSuffix =
+    typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
+      ? `, ${formatDuration(durationMs)}`
+      : '';
+
   if (ratio !== null) {
-    return `${(ratio * 100).toFixed(1)}% (${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)})`;
+    return `${(ratio * 100).toFixed(1)}% (${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)}${durationSuffix})`;
   }
 
-  return `${formatBytes(loadedBytes)} downloaded`;
+  return `${formatBytes(loadedBytes)} скачано${durationSuffix}`;
 }

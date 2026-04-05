@@ -190,6 +190,7 @@ export const ConnectionPanel = observer(function ConnectionPanel({ onConnect }: 
                 datasetStore.downloadedBytes,
                 datasetStore.totalBytes,
                 datasetStore.downloadProgressRatio,
+                datasetStore.downloadDurationMs,
               )}
             </div>
           </div>

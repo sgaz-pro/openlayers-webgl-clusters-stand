@@ -12,6 +12,7 @@ export class DatasetStore {
   countLoaded = 0;
   downloadedBytes = 0;
   totalBytes: number | null = null;
+  downloadDurationMs = 0;
   parseDurationMs = 0;
   errorMessage: string | null = null;
 
@@ -53,12 +54,14 @@ export class DatasetStore {
       this.countLoaded = 0;
       this.downloadedBytes = 0;
       this.totalBytes = null;
+      this.downloadDurationMs = 0;
       this.parseDurationMs = 0;
       this.errorMessage = null;
     });
 
     try {
       const url = `/api/points?count=${query.count}&seed=${query.seed}&mode=${query.mode}`;
+      const downloadStartedAt = performance.now();
       const download = await downloadJsonBuffer(url, abortController.signal, (progress) => {
         if (this.abortController !== abortController) {
           return;
@@ -67,6 +70,7 @@ export class DatasetStore {
         runInAction(() => {
           this.downloadedBytes = progress.loadedBytes;
           this.totalBytes = progress.totalBytes;
+          this.downloadDurationMs = performance.now() - downloadStartedAt;
         });
       });
 
@@ -78,6 +82,7 @@ export class DatasetStore {
         this.phase = 'parsing';
         this.downloadedBytes = download.loadedBytes;
         this.totalBytes = download.totalBytes;
+        this.downloadDurationMs = download.durationMs;
       });
 
       const buildResult = await this.rootStore.clusterStore.buildIndex(download.buffer, (progress) => {

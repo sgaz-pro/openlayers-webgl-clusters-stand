@@ -15,6 +15,7 @@ Core idea:
 - worker parses JSON and builds the `supercluster` index off-thread
 - map re-queries clusters only on `moveend`
 - dataset download progress is based on decoded JSON bytes; server sends `X-Uncompressed-Content-Length` to avoid `>100%` progress with gzip/brotli
+- app also tracks download duration and shows it alongside byte progress
 
 ## Top-level map
 

@@ -43,6 +43,7 @@
 - owns loading phase
 - owns request query
 - tracks byte progress
+- tracks download duration for the progress UI
 - prefers `X-Uncompressed-Content-Length` for progress totals so browser-side decompression does not inflate the percentage
 - tracks parse duration
 - hands the raw response buffer to the worker
