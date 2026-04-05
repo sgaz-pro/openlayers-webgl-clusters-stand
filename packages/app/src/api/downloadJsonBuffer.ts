@@ -22,6 +22,15 @@ function mergeChunks(chunks: Uint8Array[], totalLength: number): Uint8Array {
   return merged;
 }
 
+function parseHeaderInteger(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function downloadJsonBuffer(
   url: string,
   signal: AbortSignal,
@@ -33,8 +42,9 @@ export async function downloadJsonBuffer(
     throw new Error(`Dataset request failed with status ${response.status}`);
   }
 
-  const totalBytesHeader = response.headers.get('content-length');
-  const totalBytes = totalBytesHeader ? Number.parseInt(totalBytesHeader, 10) : null;
+  const totalBytes =
+    parseHeaderInteger(response.headers.get('x-uncompressed-content-length')) ??
+    parseHeaderInteger(response.headers.get('content-length'));
 
   if (!response.body) {
     const buffer = await response.arrayBuffer();

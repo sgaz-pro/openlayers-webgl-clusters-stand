@@ -28,7 +28,7 @@ export class DatasetStore {
       return null;
     }
 
-    return this.downloadedBytes / this.totalBytes;
+    return Math.max(0, Math.min(1, this.downloadedBytes / this.totalBytes));
   }
 
   get isBusy(): boolean {

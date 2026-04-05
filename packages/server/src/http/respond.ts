@@ -174,6 +174,7 @@ export async function sendJsonWithCompression(
 
   const extraHeaders: HeaderBag = {
     Vary: 'Accept-Encoding',
+    'X-Uncompressed-Content-Length': String(body.byteLength),
   };
 
   if (encoding !== 'identity') {
