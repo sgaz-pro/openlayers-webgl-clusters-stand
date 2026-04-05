@@ -3,7 +3,13 @@
 import type { Feature, Point } from 'geojson';
 import Supercluster from 'supercluster';
 import type { PointRecord, PointsApiResponse } from '@shared/points';
-import type { VisibleItem, WorkerRequest, WorkerResponse } from '@shared/worker';
+import type {
+  ClusterIndexOptions,
+  IndexBuildSuccessPayload,
+  VisibleItem,
+  WorkerRequest,
+  WorkerResponse,
+} from '@shared/worker';
 
 type ClusterProperties = {
   cluster: true;
@@ -14,9 +20,11 @@ type ClusterProperties = {
 
 type IndexedFeature = Feature<Point, PointRecord>;
 type QueriedFeature = Feature<Point, PointRecord | ClusterProperties>;
+type IndexBuildRequestType = 'build-index' | 'rebuild-index';
 
 const workerScope = self as DedicatedWorkerGlobalScope;
 let clusterIndex: Supercluster<PointRecord, ClusterProperties> | null = null;
+let indexedFeatures: IndexedFeature[] = [];
 const jsonDecoder = new TextDecoder();
 
 function postMessage(message: WorkerResponse): void {
@@ -66,6 +74,14 @@ function ensureIndex(): Supercluster<PointRecord, ClusterProperties> {
   return clusterIndex;
 }
 
+function ensureIndexedFeatures(): IndexedFeature[] {
+  if (indexedFeatures.length === 0) {
+    throw new Error('Cluster index cannot be rebuilt before the initial dataset load');
+  }
+
+  return indexedFeatures;
+}
+
 function parsePointsPayload(jsonBuffer: ArrayBuffer): PointsApiResponse {
   const json = jsonDecoder.decode(new Uint8Array(jsonBuffer));
   const payload = JSON.parse(json) as PointsApiResponse;
@@ -77,6 +93,62 @@ function parsePointsPayload(jsonBuffer: ArrayBuffer): PointsApiResponse {
   return payload;
 }
 
+function toIndexedFeatures(points: PointRecord[]): IndexedFeature[] {
+  return points.map((point) => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [point.lon, point.lat],
+    },
+    properties: point,
+  }));
+}
+
+function postIndexBuildProgress(
+  requestId: string,
+  requestType: IndexBuildRequestType,
+  count: number,
+  parseDurationMs: number,
+): void {
+  postMessage({
+    requestId,
+    type: requestType === 'build-index' ? 'build-index:progress' : 'rebuild-index:progress',
+    payload: {
+      phase: 'indexing',
+      count,
+      parseDurationMs,
+    },
+  });
+}
+
+function buildClusterIndex(
+  requestId: string,
+  requestType: IndexBuildRequestType,
+  options: ClusterIndexOptions,
+  features: IndexedFeature[],
+  parseDurationMs: number,
+): IndexBuildSuccessPayload {
+  postIndexBuildProgress(requestId, requestType, features.length, parseDurationMs);
+
+  const indexBuildStartedAt = performance.now();
+  const index = new Supercluster<PointRecord, ClusterProperties>({
+    radius: options.radius,
+    maxZoom: options.maxZoom,
+    minZoom: options.minZoom,
+    minPoints: options.minPoints,
+    extent: options.extent,
+    nodeSize: options.nodeSize,
+  });
+
+  clusterIndex = index.load(features);
+
+  return {
+    count: features.length,
+    parseDurationMs,
+    indexBuildDurationMs: performance.now() - indexBuildStartedAt,
+  };
+}
+
 workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
 
@@ -86,44 +158,28 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const parseStartedAt = performance.now();
         const payload = parsePointsPayload(message.payload.jsonBuffer);
         const parseDurationMs = performance.now() - parseStartedAt;
-        const points = payload.points;
+        const features = toIndexedFeatures(payload.points);
 
-        postMessage({
-          requestId: message.requestId,
-          type: 'build-index:progress',
-          payload: {
-            phase: 'indexing',
-            count: points.length,
-            parseDurationMs,
-          },
-        });
-
-        const indexBuildStartedAt = performance.now();
-        const index = new Supercluster<PointRecord, ClusterProperties>({
-          radius: message.payload.options.radius,
-          maxZoom: message.payload.options.maxZoom,
-          minZoom: message.payload.options.minZoom,
-        });
-
-        const features: IndexedFeature[] = points.map((point) => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [point.lon, point.lat],
-          },
-          properties: point,
-        }));
-
-        clusterIndex = index.load(features);
+        indexedFeatures = features;
 
         postMessage({
           requestId: message.requestId,
           type: 'build-index:success',
-          payload: {
-            count: points.length,
+          payload: buildClusterIndex(
+            message.requestId,
+            message.type,
+            message.payload.options,
+            features,
             parseDurationMs,
-            indexBuildDurationMs: performance.now() - indexBuildStartedAt,
-          },
+          ),
+        });
+        break;
+      }
+      case 'rebuild-index': {
+        postMessage({
+          requestId: message.requestId,
+          type: 'rebuild-index:success',
+          payload: buildClusterIndex(message.requestId, message.type, message.payload.options, ensureIndexedFeatures(), 0),
         });
         break;
       }

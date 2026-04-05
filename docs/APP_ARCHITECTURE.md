@@ -8,7 +8,7 @@
 
 - `src/app/App.tsx`: fullscreen map shell and overlay control panel
 - `src/components/ConnectionPanel.tsx`: server/connection section and manual connect form with native controls
-- `src/components/DisplayPanel.tsx`: display settings placeholder section
+- `src/components/DisplayPanel.tsx`: cluster settings form and apply action
 - `src/components/MetricsPanel.tsx`: runtime metrics section
 - `src/components/MapView.tsx`: map creation, `moveend` refresh, cluster click behavior
 - `src/stores/RootStore.ts`: store composition and React context
@@ -35,7 +35,8 @@
 8. The downloaded `ArrayBuffer` is transferred into the worker.
 9. The worker decodes JSON, parses it, and then builds the `supercluster` index.
 10. `ClusterStore` becomes ready and the current map extent is queried.
-11. Map updates cluster circles, point icons and decluttered labels.
+11. User can adjust cluster settings in `DisplayPanel` and apply them without re-fetching the dataset.
+12. Map updates cluster circles, point icons and decluttered labels.
 
 ## Store responsibilities
 
@@ -61,6 +62,8 @@
 
 - owns worker instance
 - builds the index from a transferred JSON buffer
+- stores the currently applied cluster/display settings
+- can rebuild the worker index from cached worker-side features when settings change
 - queries clusters for current bbox/zoom
 - compresses cluster query zoom near the maximum view zoom so dense areas reveal mostly on the last two zoom levels
 - exposes visible item counts and timings
@@ -74,6 +77,7 @@
 - leaf points: separate `VectorLayer` with category-specific SVG icons
 - labels: separate `VectorLayer`, aligned to the right of the icon with decluttering
 - at maximum zoom, the cluster query bbox is padded and label decluttering is disabled so near-edge labels stay visible
+- cluster tuning controls expose `radius`, `minZoom`, `maxZoom`, `minPoints`, `extent`, `nodeSize` and `denseRevealViewZoom`
 
 ## Important invariants
 
@@ -113,6 +117,12 @@ To change worker parsing/index build behavior:
 - `src/workers/workerClient.ts`
 - `src/workers/supercluster.worker.ts`
 - `../../shared/worker.ts`
+
+To change cluster settings UI or defaults:
+
+- `src/components/DisplayPanel.tsx`
+- `src/constants.ts`
+- `src/stores/ClusterStore.ts`
 
 To change cluster visuals:
 

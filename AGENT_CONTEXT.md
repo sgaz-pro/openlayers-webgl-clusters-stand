@@ -30,7 +30,7 @@ Core idea:
 - `packages/server/src/generators/syntheticDataset.ts`: synthetic point generation
 - `packages/app/src/app/App.tsx`: fullscreen app shell with overlay control panel
 - `packages/app/src/components/ConnectionPanel.tsx`: server/connection section with native form controls
-- `packages/app/src/components/DisplayPanel.tsx`: placeholder display settings section
+- `packages/app/src/components/DisplayPanel.tsx`: cluster settings form and apply action
 - `packages/app/src/components/MetricsPanel.tsx`: runtime metrics section
 - `packages/app/src/components/MapView.tsx`: OpenLayers map lifecycle and click-to-zoom
 - `packages/app/src/map/icons.ts`: SVG icon catalog for point categories
@@ -43,7 +43,7 @@ Core idea:
 
 - App opens with a fullscreen map and a right overlay control panel.
 - On mobile, the right panel is hidden behind a burger and slides over the map.
-- The right panel contains three collapsible sections: server/connection, display placeholder, metrics.
+- The right panel contains three collapsible sections: server/connection, cluster/display settings, metrics.
 - App runs a health check on mount and can refresh it manually from the connection section.
 - Dataset startup is still manual.
 - User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
@@ -55,6 +55,7 @@ Core idea:
 - Point names are rendered in a separate decluttered layer to the right of the icon.
 - At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
 - Cluster query zoom is intentionally compressed near the top of the zoom range so dense areas only fully раскрываются on the last two view zoom levels.
+- The display section now exposes editable `supercluster` parameters plus `denseRevealViewZoom`, and applying them rebuilds the worker index without re-downloading the dataset.
 
 ## Common change map
 
@@ -80,7 +81,9 @@ If you need to change loading/progress behavior:
 If you need to change clustering behavior:
 
 - `packages/app/src/constants.ts`
+- `packages/app/src/components/DisplayPanel.tsx`
 - `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/workers/workerClient.ts`
 - `packages/app/src/workers/supercluster.worker.ts`
 
 If you need to change map rendering:

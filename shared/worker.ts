@@ -4,6 +4,9 @@ export interface ClusterIndexOptions {
   radius: number;
   maxZoom: number;
   minZoom: number;
+  minPoints: number;
+  extent: number;
+  nodeSize: number;
 }
 
 export interface WorkerMessageBase<TType extends string, TPayload> {
@@ -16,6 +19,13 @@ export type BuildIndexRequest = WorkerMessageBase<
   'build-index',
   {
     jsonBuffer: ArrayBuffer;
+    options: ClusterIndexOptions;
+  }
+>;
+
+export type RebuildIndexRequest = WorkerMessageBase<
+  'rebuild-index',
+  {
     options: ClusterIndexOptions;
   }
 >;
@@ -35,7 +45,11 @@ export type GetExpansionZoomRequest = WorkerMessageBase<
   }
 >;
 
-export type WorkerRequest = BuildIndexRequest | QueryClustersRequest | GetExpansionZoomRequest;
+export type WorkerRequest =
+  | BuildIndexRequest
+  | RebuildIndexRequest
+  | QueryClustersRequest
+  | GetExpansionZoomRequest;
 
 export interface ClusterItem {
   kind: 'cluster';
@@ -58,23 +72,25 @@ export interface LeafPointItem {
 
 export type VisibleItem = ClusterItem | LeafPointItem;
 
-export type BuildIndexProgressResponse = WorkerMessageBase<
-  'build-index:progress',
-  {
-    phase: 'indexing';
-    count: number;
-    parseDurationMs: number;
-  }
->;
+export interface IndexBuildProgressPayload {
+  phase: 'indexing';
+  count: number;
+  parseDurationMs: number;
+}
 
-export type BuildIndexResponse = WorkerMessageBase<
-  'build-index:success',
-  {
-    count: number;
-    parseDurationMs: number;
-    indexBuildDurationMs: number;
-  }
->;
+export interface IndexBuildSuccessPayload {
+  count: number;
+  parseDurationMs: number;
+  indexBuildDurationMs: number;
+}
+
+export type BuildIndexProgressResponse = WorkerMessageBase<'build-index:progress', IndexBuildProgressPayload>;
+
+export type BuildIndexResponse = WorkerMessageBase<'build-index:success', IndexBuildSuccessPayload>;
+
+export type RebuildIndexProgressResponse = WorkerMessageBase<'rebuild-index:progress', IndexBuildProgressPayload>;
+
+export type RebuildIndexResponse = WorkerMessageBase<'rebuild-index:success', IndexBuildSuccessPayload>;
 
 export type QueryClustersResponse = WorkerMessageBase<
   'query-clusters:success',
@@ -102,6 +118,8 @@ export type WorkerErrorResponse = WorkerMessageBase<
 export type WorkerResponse =
   | BuildIndexProgressResponse
   | BuildIndexResponse
+  | RebuildIndexProgressResponse
+  | RebuildIndexResponse
   | QueryClustersResponse
   | GetExpansionZoomResponse
   | WorkerErrorResponse;

@@ -1,18 +1,27 @@
 import type {
   BuildIndexResponse,
-  BuildIndexProgressResponse,
   ClusterIndexOptions,
   GetExpansionZoomResponse,
+  IndexBuildProgressPayload,
   QueryClustersResponse,
+  RebuildIndexResponse,
   WorkerRequest,
   WorkerResponse,
 } from '@shared/worker';
 import type { LonLatBbox } from '@shared/points';
 
+type IndexBuildProgressMessage = Extract<WorkerResponse, { type: 'build-index:progress' | 'rebuild-index:progress' }>;
+
+function isIndexBuildProgressMessage(
+  message: WorkerResponse,
+): message is IndexBuildProgressMessage {
+  return message.type === 'build-index:progress' || message.type === 'rebuild-index:progress';
+}
+
 interface PendingRequest {
   resolve: (payload: any) => void;
   reject: (reason?: unknown) => void;
-  onProgress?: (message: WorkerResponse) => void;
+  onProgress?: (message: IndexBuildProgressMessage) => void;
 }
 
 export class SuperclusterWorkerClient {
@@ -33,7 +42,7 @@ export class SuperclusterWorkerClient {
         return;
       }
 
-      if (message.type === 'build-index:progress') {
+      if (isIndexBuildProgressMessage(message)) {
         pendingRequest.onProgress?.(message);
         return;
       }
@@ -62,7 +71,7 @@ export class SuperclusterWorkerClient {
   private postRequest<TPayload>(
     message: Omit<WorkerRequest, 'requestId'>,
     options?: {
-      onProgress?: (message: WorkerResponse) => void;
+      onProgress?: (message: IndexBuildProgressMessage) => void;
       transfer?: Transferable[];
     },
   ): Promise<TPayload> {
@@ -82,7 +91,7 @@ export class SuperclusterWorkerClient {
   buildIndex(
     jsonBuffer: ArrayBuffer,
     options: ClusterIndexOptions,
-    onProgress?: (payload: BuildIndexProgressResponse['payload']) => void,
+    onProgress?: (payload: IndexBuildProgressPayload) => void,
   ): Promise<BuildIndexResponse['payload']> {
     return this.postRequest(
       {
@@ -91,11 +100,26 @@ export class SuperclusterWorkerClient {
       },
       {
         onProgress: (message) => {
-          if (message.type === 'build-index:progress') {
-            onProgress?.(message.payload);
-          }
+          onProgress?.(message.payload);
         },
         transfer: [jsonBuffer],
+      },
+    );
+  }
+
+  rebuildIndex(
+    options: ClusterIndexOptions,
+    onProgress?: (payload: IndexBuildProgressPayload) => void,
+  ): Promise<RebuildIndexResponse['payload']> {
+    return this.postRequest(
+      {
+        type: 'rebuild-index',
+        payload: { options },
+      },
+      {
+        onProgress: (message) => {
+          onProgress?.(message.payload);
+        },
       },
     );
   }

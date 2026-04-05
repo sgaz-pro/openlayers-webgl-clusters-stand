@@ -1,35 +1,50 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { LonLatBbox } from '@shared/points';
-import type { BuildIndexProgressResponse, BuildIndexResponse, VisibleItem } from '@shared/worker';
-import { DENSE_CLUSTER_REVEAL_VIEW_ZOOM, INITIAL_VIEW, WORKER_INDEX_OPTIONS } from '../constants';
+import type { BuildIndexResponse, IndexBuildProgressPayload, VisibleItem } from '@shared/worker';
+import {
+  DEFAULT_CLUSTER_DISPLAY_SETTINGS,
+  INITIAL_VIEW,
+  toClusterIndexOptions,
+  type ClusterDisplaySettings,
+} from '../constants';
 import { SuperclusterWorkerClient } from '../workers/workerClient';
 import type { RootStore } from './RootStore';
 
-function toClusterQueryZoom(viewZoom: number): number {
-  const roundedZoom = Math.max(WORKER_INDEX_OPTIONS.minZoom, Math.round(viewZoom));
-  const maxClusterZoom = WORKER_INDEX_OPTIONS.maxZoom;
+function normalizeDenseRevealViewZoom(settings: ClusterDisplaySettings): number {
+  const minViewZoom = Math.max(INITIAL_VIEW.minZoom, settings.minZoom);
+  return Math.max(minViewZoom, Math.min(INITIAL_VIEW.maxZoom - 1, Math.round(settings.denseClusterRevealViewZoom)));
+}
 
-  if (roundedZoom < DENSE_CLUSTER_REVEAL_VIEW_ZOOM) {
-    return Math.min(roundedZoom, maxClusterZoom - 2);
+function toClusterQueryZoom(viewZoom: number, settings: ClusterDisplaySettings): number {
+  const roundedZoom = Math.max(settings.minZoom, Math.round(viewZoom));
+  const maxClusterZoom = settings.maxZoom;
+  const coarseZoom = Math.max(settings.minZoom, maxClusterZoom - 2);
+  const penultimateZoom = Math.max(settings.minZoom, maxClusterZoom - 1);
+  const denseRevealViewZoom = normalizeDenseRevealViewZoom(settings);
+
+  if (roundedZoom < denseRevealViewZoom) {
+    return Math.min(roundedZoom, coarseZoom);
   }
 
-  if (roundedZoom === DENSE_CLUSTER_REVEAL_VIEW_ZOOM) {
-    return maxClusterZoom - 1;
+  if (roundedZoom === denseRevealViewZoom) {
+    return penultimateZoom;
   }
 
   return Math.min(roundedZoom, maxClusterZoom + 1);
 }
 
-function toViewZoomForExpansion(clusterZoom: number): number {
+function toViewZoomForExpansion(clusterZoom: number, settings: ClusterDisplaySettings): number {
   const roundedZoom = Math.round(clusterZoom);
-  const maxClusterZoom = WORKER_INDEX_OPTIONS.maxZoom;
+  const maxClusterZoom = settings.maxZoom;
+  const coarseZoom = Math.max(settings.minZoom, maxClusterZoom - 2);
+  const penultimateZoom = Math.max(settings.minZoom, maxClusterZoom - 1);
 
-  if (roundedZoom <= maxClusterZoom - 2) {
+  if (roundedZoom <= coarseZoom) {
     return roundedZoom;
   }
 
-  if (roundedZoom === maxClusterZoom - 1) {
-    return DENSE_CLUSTER_REVEAL_VIEW_ZOOM;
+  if (roundedZoom === penultimateZoom) {
+    return normalizeDenseRevealViewZoom(settings);
   }
 
   return INITIAL_VIEW.maxZoom;
@@ -44,15 +59,16 @@ export class ClusterStore {
   renderedLabels = 0;
   currentZoom = INITIAL_VIEW.zoom;
   isIndexReady = false;
+  isApplyingSettings = false;
   indexRevision = 0;
+  settingsError: string | null = null;
+  settings: ClusterDisplaySettings = DEFAULT_CLUSTER_DISPLAY_SETTINGS;
 
-  private readonly rootStore: RootStore;
   private readonly workerClient = new SuperclusterWorkerClient();
   private querySerial = 0;
   private buildSerial = 0;
 
-  constructor(rootStore: RootStore) {
-    this.rootStore = rootStore;
+  constructor(_rootStore: RootStore) {
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
@@ -70,16 +86,18 @@ export class ClusterStore {
     this.visibleLeafPoints = 0;
     this.renderedLabels = 0;
     this.isIndexReady = false;
+    this.isApplyingSettings = false;
+    this.settingsError = null;
   }
 
   async buildIndex(
     jsonBuffer: ArrayBuffer,
-    onProgress?: (payload: BuildIndexProgressResponse['payload']) => void,
+    onProgress?: (payload: IndexBuildProgressPayload) => void,
   ): Promise<BuildIndexResponse['payload']> {
     const buildSerial = this.buildSerial + 1;
     this.buildSerial = buildSerial;
     this.querySerial += 1;
-    const result = await this.workerClient.buildIndex(jsonBuffer, WORKER_INDEX_OPTIONS, onProgress);
+    const result = await this.workerClient.buildIndex(jsonBuffer, toClusterIndexOptions(this.settings), onProgress);
 
     if (buildSerial !== this.buildSerial) {
       return result;
@@ -88,10 +106,59 @@ export class ClusterStore {
     runInAction(() => {
       this.indexBuildDurationMs = result.indexBuildDurationMs;
       this.isIndexReady = true;
+      this.isApplyingSettings = false;
+      this.settingsError = null;
       this.indexRevision += 1;
     });
 
     return result;
+  }
+
+  async applySettings(
+    settings: ClusterDisplaySettings,
+    onProgress?: (payload: IndexBuildProgressPayload) => void,
+  ): Promise<void> {
+    if (!this.isIndexReady) {
+      runInAction(() => {
+        this.settings = settings;
+        this.settingsError = null;
+      });
+      return;
+    }
+
+    const buildSerial = this.buildSerial + 1;
+    this.buildSerial = buildSerial;
+    this.querySerial += 1;
+
+    runInAction(() => {
+      this.isApplyingSettings = true;
+      this.settingsError = null;
+    });
+
+    try {
+      const result = await this.workerClient.rebuildIndex(toClusterIndexOptions(settings), onProgress);
+
+      if (buildSerial !== this.buildSerial) {
+        return;
+      }
+
+      runInAction(() => {
+        this.settings = settings;
+        this.indexBuildDurationMs = result.indexBuildDurationMs;
+        this.isApplyingSettings = false;
+        this.settingsError = null;
+        this.indexRevision += 1;
+      });
+    } catch (error) {
+      if (buildSerial !== this.buildSerial) {
+        return;
+      }
+
+      runInAction(() => {
+        this.isApplyingSettings = false;
+        this.settingsError = error instanceof Error ? error.message : 'Не удалось применить настройки кластеров';
+      });
+    }
   }
 
   async queryClusters(bbox: LonLatBbox, zoom: number): Promise<void> {
@@ -101,7 +168,7 @@ export class ClusterStore {
 
     const serial = this.querySerial + 1;
     this.querySerial = serial;
-    const normalizedZoom = toClusterQueryZoom(zoom);
+    const normalizedZoom = toClusterQueryZoom(zoom, this.settings);
     const result = await this.workerClient.queryClusters(bbox, normalizedZoom);
 
     if (serial !== this.querySerial) {
@@ -121,7 +188,7 @@ export class ClusterStore {
 
   async getExpansionZoom(clusterId: number): Promise<number> {
     const result = await this.workerClient.getExpansionZoom(clusterId);
-    return toViewZoomForExpansion(result.zoom);
+    return toViewZoomForExpansion(result.zoom, this.settings);
   }
 
   setRenderedLabels(count: number): void {
