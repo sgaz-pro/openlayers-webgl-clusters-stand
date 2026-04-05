@@ -6,6 +6,7 @@ It is intentionally shorter and more task-focused than `README.md`.
 ## Purpose
 
 The project is a TypeScript monorepo demo for exploring large point datasets on an OpenLayers map.
+The repo is currently standardized on Node.js 24 and npm 11 for local work and CI.
 
 Core idea:
 
