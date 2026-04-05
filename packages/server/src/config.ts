@@ -9,7 +9,7 @@ export const DEFAULT_QUERY: DatasetQuery = {
   mode: 'mixed',
 };
 
-export const SUPPORTED_MODES: DatasetMode[] = ['mixed'];
+export const SUPPORTED_MODES: DatasetMode[] = ['mixed', 'industrial'];
 export const MAX_COUNT = 250_000;
 export const STREAM_CHUNK_SIZE = 64 * 1024;
 
@@ -19,4 +19,3 @@ export const META_RESPONSE: MetaApiResponse = {
   defaultQuery: DEFAULT_QUERY,
   supportedModes: SUPPORTED_MODES,
 };
-

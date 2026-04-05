@@ -1,4 +1,12 @@
-import type { DatasetQuery, PointCategory, PointRecord, PointsApiResponse } from '../../../../shared/points.js';
+import type {
+  DatasetQuery,
+  GeneralPointCategory,
+  IndustrialPointCategory,
+  PointCategory,
+  PointRecord,
+  PointsApiResponse,
+} from '../../../../shared/points.js';
+import { getIndustrialNameFactory } from './industrialNames.js';
 import { createRandomSource, type RandomSource } from './prng.js';
 
 interface NamedCenter {
@@ -28,6 +36,26 @@ interface Corridor {
   weight: number;
 }
 
+interface IndustrialZone {
+  name: string;
+  dxKm: number;
+  dyKm: number;
+  spreadKm: number;
+  weight: number;
+  intensity: number;
+  categories: ReadonlyArray<readonly [IndustrialPointCategory, number]>;
+}
+
+interface IndustrialCorridor {
+  name: string;
+  fromZone: string;
+  toZone: string;
+  jitterKm: number;
+  weight: number;
+  intensity: number;
+  categories: ReadonlyArray<readonly [IndustrialPointCategory, number]>;
+}
+
 const URBAN_CENTERS: NamedCenter[] = [
   { name: 'Berlin', lon: 13.405, lat: 52.52, spreadKm: 15, weight: 11 },
   { name: 'Paris', lon: 2.3522, lat: 48.8566, spreadKm: 16, weight: 12 },
@@ -36,7 +64,7 @@ const URBAN_CENTERS: NamedCenter[] = [
   { name: 'Tokyo', lon: 139.6917, lat: 35.6895, spreadKm: 22, weight: 15 },
   { name: 'Singapore', lon: 103.8198, lat: 1.3521, spreadKm: 10, weight: 8 },
   { name: 'Moscow', lon: 37.6173, lat: 55.7558, spreadKm: 18, weight: 12 },
-  { name: 'Dubai', lon: 55.2708, lat: 25.2048, spreadKm: 13, weight: 8 }
+  { name: 'Dubai', lon: 55.2708, lat: 25.2048, spreadKm: 13, weight: 8 },
 ];
 
 const SPARSE_REGIONS: SparseRegion[] = [
@@ -45,18 +73,58 @@ const SPARSE_REGIONS: SparseRegion[] = [
   { name: 'Iberian Interior', west: -7.5, south: 38, east: -1.5, north: 42.5, weight: 6 },
   { name: 'Patagonia Fringe', west: -72, south: -48, east: -63, north: -40, weight: 4 },
   { name: 'Western Australia', west: 114, south: -33, east: 123, north: -25, weight: 4 },
-  { name: 'Scandinavian North', west: 15, south: 63, east: 28, north: 69, weight: 5 }
+  { name: 'Scandinavian North', west: 15, south: 63, east: 28, north: 69, weight: 5 },
 ];
 
 const CORRIDORS: Corridor[] = [
-  { name: 'Northeast Corridor', fromLon: -77.0369, fromLat: 38.9072, toLon: -71.0589, toLat: 42.3601, jitterKm: 12, weight: 10 },
-  { name: 'Rhine Axis', fromLon: 6.96, fromLat: 50.94, toLon: 8.6821, toLat: 50.1109, jitterKm: 8, weight: 8 },
-  { name: 'Tokyo-Osaka Link', fromLon: 139.6917, fromLat: 35.6895, toLon: 135.5023, toLat: 34.6937, jitterKm: 10, weight: 8 },
-  { name: 'Gulf Trade Route', fromLon: 55.2708, fromLat: 25.2048, toLon: 54.3773, toLat: 24.4539, jitterKm: 7, weight: 6 },
-  { name: 'Baltic Logistics', fromLon: 24.7536, fromLat: 59.437, toLon: 18.0686, toLat: 59.3293, jitterKm: 7, weight: 5 }
+  {
+    name: 'Northeast Corridor',
+    fromLon: -77.0369,
+    fromLat: 38.9072,
+    toLon: -71.0589,
+    toLat: 42.3601,
+    jitterKm: 12,
+    weight: 10,
+  },
+  {
+    name: 'Rhine Axis',
+    fromLon: 6.96,
+    fromLat: 50.94,
+    toLon: 8.6821,
+    toLat: 50.1109,
+    jitterKm: 8,
+    weight: 8,
+  },
+  {
+    name: 'Tokyo-Osaka Link',
+    fromLon: 139.6917,
+    fromLat: 35.6895,
+    toLon: 135.5023,
+    toLat: 34.6937,
+    jitterKm: 10,
+    weight: 8,
+  },
+  {
+    name: 'Gulf Trade Route',
+    fromLon: 55.2708,
+    fromLat: 25.2048,
+    toLon: 54.3773,
+    toLat: 24.4539,
+    jitterKm: 7,
+    weight: 6,
+  },
+  {
+    name: 'Baltic Logistics',
+    fromLon: 24.7536,
+    fromLat: 59.437,
+    toLon: 18.0686,
+    toLat: 59.3293,
+    jitterKm: 7,
+    weight: 5,
+  },
 ];
 
-const CATEGORIES_BY_SCENARIO = {
+const MIXED_CATEGORIES_BY_SCENARIO = {
   urban: [
     ['restaurant', 16],
     ['transit', 10],
@@ -97,9 +165,9 @@ const CATEGORIES_BY_SCENARIO = {
     ['healthcare', 6],
     ['warehouse', 6],
   ],
-} satisfies Record<string, ReadonlyArray<readonly [PointCategory, number]>>;
+} satisfies Record<string, ReadonlyArray<readonly [GeneralPointCategory, number]>>;
 
-const NAME_PARTS: Record<PointCategory, readonly string[]> = {
+const MIXED_NAME_PARTS: Record<GeneralPointCategory, readonly string[]> = {
   restaurant: ['Cafe', 'Bistro', 'Kitchen', 'Table', 'Roastery', 'Diner'],
   transit: ['Station', 'Terminal', 'Hub', 'Platform', 'Interchange', 'Depot'],
   office: ['Campus', 'Tower', 'Works', 'Center', 'Plaza', 'Labs'],
@@ -110,6 +178,220 @@ const NAME_PARTS: Record<PointCategory, readonly string[]> = {
   warehouse: ['Logistics Yard', 'Depot', 'Fulfillment Center', 'Warehouse', 'Cargo Hub', 'Storage Point'],
 };
 
+const INDUSTRIAL_COMPLEX = {
+  name: 'Nizhnekamsk Integrated Petrochemical Complex',
+  lon: 51.822,
+  lat: 55.638,
+};
+
+const INDUSTRIAL_ZONES: IndustrialZone[] = [
+  {
+    name: 'Ethylene Cracking Yard',
+    dxKm: -1.8,
+    dyKm: 0.9,
+    spreadKm: 0.46,
+    weight: 18,
+    intensity: 1.45,
+    categories: [
+      ['process_unit', 26],
+      ['utilities', 10],
+      ['safety', 5],
+      ['maintenance', 4],
+    ],
+  },
+  {
+    name: 'Polymer Train Field',
+    dxKm: 0.6,
+    dyKm: 1.3,
+    spreadKm: 0.5,
+    weight: 17,
+    intensity: 1.4,
+    categories: [
+      ['process_unit', 24],
+      ['utilities', 8],
+      ['maintenance', 5],
+      ['laboratory', 3],
+    ],
+  },
+  {
+    name: 'Tank Farm East',
+    dxKm: 2.2,
+    dyKm: 0.5,
+    spreadKm: 0.56,
+    weight: 13,
+    intensity: 1.28,
+    categories: [
+      ['storage', 24],
+      ['logistics', 10],
+      ['safety', 8],
+      ['maintenance', 4],
+    ],
+  },
+  {
+    name: 'Rail Loading Terminal',
+    dxKm: 1.9,
+    dyKm: -1.6,
+    spreadKm: 0.52,
+    weight: 12,
+    intensity: 1.18,
+    categories: [
+      ['logistics', 20],
+      ['storage', 10],
+      ['maintenance', 7],
+      ['administration', 3],
+    ],
+  },
+  {
+    name: 'Power and Steam Island',
+    dxKm: -0.5,
+    dyKm: -1.2,
+    spreadKm: 0.42,
+    weight: 11,
+    intensity: 1.24,
+    categories: [
+      ['utilities', 24],
+      ['safety', 7],
+      ['maintenance', 7],
+      ['process_unit', 4],
+    ],
+  },
+  {
+    name: 'Water Treatment Basin',
+    dxKm: -2.4,
+    dyKm: -1.3,
+    spreadKm: 0.44,
+    weight: 8,
+    intensity: 1.04,
+    categories: [
+      ['utilities', 18],
+      ['safety', 8],
+      ['maintenance', 6],
+      ['laboratory', 4],
+    ],
+  },
+  {
+    name: 'Maintenance and Fabrication District',
+    dxKm: 0.3,
+    dyKm: -2.4,
+    spreadKm: 0.5,
+    weight: 7,
+    intensity: 0.95,
+    categories: [
+      ['maintenance', 22],
+      ['logistics', 8],
+      ['administration', 7],
+      ['utilities', 4],
+    ],
+  },
+  {
+    name: 'Process Analytics Campus',
+    dxKm: -1.2,
+    dyKm: 2.2,
+    spreadKm: 0.38,
+    weight: 6,
+    intensity: 0.9,
+    categories: [
+      ['laboratory', 22],
+      ['administration', 10],
+      ['maintenance', 4],
+      ['process_unit', 3],
+    ],
+  },
+  {
+    name: 'Safety and Flare Perimeter',
+    dxKm: 2.8,
+    dyKm: 1.8,
+    spreadKm: 0.34,
+    weight: 4,
+    intensity: 1.06,
+    categories: [
+      ['safety', 24],
+      ['utilities', 8],
+      ['maintenance', 3],
+      ['administration', 2],
+    ],
+  },
+];
+
+const INDUSTRIAL_CORRIDORS: IndustrialCorridor[] = [
+  {
+    name: 'North Pipe Rack Spine',
+    fromZone: 'Ethylene Cracking Yard',
+    toZone: 'Polymer Train Field',
+    jitterKm: 0.14,
+    weight: 12,
+    intensity: 1.22,
+    categories: [
+      ['process_unit', 12],
+      ['utilities', 10],
+      ['safety', 4],
+    ],
+  },
+  {
+    name: 'Utility Backbone South',
+    fromZone: 'Power and Steam Island',
+    toZone: 'Ethylene Cracking Yard',
+    jitterKm: 0.16,
+    weight: 10,
+    intensity: 1.16,
+    categories: [
+      ['utilities', 18],
+      ['safety', 5],
+      ['maintenance', 4],
+    ],
+  },
+  {
+    name: 'Transfer Gallery East',
+    fromZone: 'Polymer Train Field',
+    toZone: 'Tank Farm East',
+    jitterKm: 0.15,
+    weight: 9,
+    intensity: 1.12,
+    categories: [
+      ['storage', 12],
+      ['logistics', 10],
+      ['utilities', 4],
+    ],
+  },
+  {
+    name: 'Rail Dispatch Corridor',
+    fromZone: 'Tank Farm East',
+    toZone: 'Rail Loading Terminal',
+    jitterKm: 0.18,
+    weight: 9,
+    intensity: 1.1,
+    categories: [
+      ['logistics', 18],
+      ['storage', 8],
+      ['maintenance', 4],
+    ],
+  },
+  {
+    name: 'Service Access Loop',
+    fromZone: 'Maintenance and Fabrication District',
+    toZone: 'Power and Steam Island',
+    jitterKm: 0.17,
+    weight: 6,
+    intensity: 0.98,
+    categories: [
+      ['maintenance', 12],
+      ['administration', 6],
+      ['logistics', 5],
+    ],
+  },
+];
+
+const INDUSTRIAL_SUPPORT_CATEGORIES: ReadonlyArray<readonly [IndustrialPointCategory, number]> = [
+  ['maintenance', 14],
+  ['logistics', 12],
+  ['administration', 10],
+  ['utilities', 8],
+  ['safety', 8],
+  ['laboratory', 5],
+  ['storage', 4],
+  ['process_unit', 3],
+];
+
 const CATEGORY_BASE_WEIGHT: Record<PointCategory, number> = {
   restaurant: 18,
   transit: 32,
@@ -119,7 +401,24 @@ const CATEGORY_BASE_WEIGHT: Record<PointCategory, number> = {
   retail: 24,
   healthcare: 22,
   warehouse: 30,
+  process_unit: 38,
+  utilities: 30,
+  storage: 34,
+  maintenance: 24,
+  logistics: 28,
+  safety: 20,
+  laboratory: 18,
+  administration: 16,
 };
+
+type LocationPoint = { lon: number; lat: number };
+
+const INDUSTRIAL_ZONE_CENTERS = new Map<string, LocationPoint>(
+  INDUSTRIAL_ZONES.map((zone) => [
+    zone.name,
+    offsetPoint(INDUSTRIAL_COMPLEX.lon, INDUSTRIAL_COMPLEX.lat, zone.dxKm, zone.dyKm),
+  ]),
+);
 
 function clampLat(lat: number): number {
   return Math.max(-85, Math.min(85, lat));
@@ -137,7 +436,7 @@ function normalizeLon(lon: number): number {
   return lon;
 }
 
-function offsetPoint(lon: number, lat: number, dxKm: number, dyKm: number): { lon: number; lat: number } {
+function offsetPoint(lon: number, lat: number, dxKm: number, dyKm: number): LocationPoint {
   const latOffset = dyKm / 110.574;
   const lonOffset = dxKm / (111.32 * Math.cos((lat * Math.PI) / 180));
 
@@ -147,19 +446,23 @@ function offsetPoint(lon: number, lat: number, dxKm: number, dyKm: number): { lo
   };
 }
 
-function pickCategory(
+function pickCategory<TCategory extends PointCategory>(
   rng: RandomSource,
-  source: ReadonlyArray<readonly [PointCategory, number]>,
-): PointCategory {
+  source: ReadonlyArray<readonly [TCategory, number]>,
+): TCategory {
   const [category] = rng.weightedPick(source, ([, weight]) => weight);
   return category;
 }
 
-function makeName(rng: RandomSource, anchorName: string, category: PointCategory): string {
-  const parts = NAME_PARTS[category];
+function makeMixedName(
+  rng: RandomSource,
+  anchorName: string,
+  category: GeneralPointCategory,
+): string {
+  const parts = MIXED_NAME_PARTS[category];
 
   if (!parts) {
-    throw new Error(`Unknown category for naming: ${category}`);
+    throw new Error(`Unknown mixed category for naming: ${category}`);
   }
 
   const suffix = rng.pick(parts);
@@ -179,6 +482,16 @@ function makeWeight(rng: RandomSource, category: PointCategory, intensity: numbe
   return Math.max(1, Math.round(base * jitter));
 }
 
+function getIndustrialZoneCenter(zoneName: string): LocationPoint {
+  const zoneCenter = INDUSTRIAL_ZONE_CENTERS.get(zoneName);
+
+  if (!zoneCenter) {
+    throw new Error(`Unknown industrial zone center: ${zoneName}`);
+  }
+
+  return zoneCenter;
+}
+
 function createUrbanPoint(index: number, rng: RandomSource): PointRecord {
   const center = rng.weightedPick(URBAN_CENTERS, (item) => item.weight);
   const distanceScale = Math.abs(rng.normal(0, center.spreadKm));
@@ -189,13 +502,13 @@ function createUrbanPoint(index: number, rng: RandomSource): PointRecord {
     Math.cos(angle) * distanceScale,
     Math.sin(angle) * distanceScale,
   );
-  const category = pickCategory(rng, CATEGORIES_BY_SCENARIO.urban);
+  const category = pickCategory(rng, MIXED_CATEGORIES_BY_SCENARIO.urban);
 
   return {
     id: `pt-${index}`,
     lon: offset.lon,
     lat: offset.lat,
-    name: makeName(rng, center.name, category),
+    name: makeMixedName(rng, center.name, category),
     category,
     weight: makeWeight(rng, category, 1.2),
   };
@@ -205,13 +518,13 @@ function createSparsePoint(index: number, rng: RandomSource): PointRecord {
   const region = rng.weightedPick(SPARSE_REGIONS, (item) => item.weight);
   const lon = region.west + rng.next() * (region.east - region.west);
   const lat = region.south + rng.next() * (region.north - region.south);
-  const category = pickCategory(rng, CATEGORIES_BY_SCENARIO.sparse);
+  const category = pickCategory(rng, MIXED_CATEGORIES_BY_SCENARIO.sparse);
 
   return {
     id: `pt-${index}`,
     lon,
     lat,
-    name: makeName(rng, region.name, category),
+    name: makeMixedName(rng, region.name, category),
     category,
     weight: makeWeight(rng, category, 0.85),
   };
@@ -231,13 +544,13 @@ function createCorridorPoint(index: number, rng: RandomSource): PointRecord {
     Math.cos(heading) * axialJitter - Math.sin(heading) * lateralJitter,
     Math.sin(heading) * axialJitter + Math.cos(heading) * lateralJitter,
   );
-  const category = pickCategory(rng, CATEGORIES_BY_SCENARIO.corridor);
+  const category = pickCategory(rng, MIXED_CATEGORIES_BY_SCENARIO.corridor);
 
   return {
     id: `pt-${index}`,
     lon: offset.lon,
     lat: offset.lat,
-    name: makeName(rng, corridor.name, category),
+    name: makeMixedName(rng, corridor.name, category),
     category,
     weight: makeWeight(rng, category, 1),
   };
@@ -246,26 +559,114 @@ function createCorridorPoint(index: number, rng: RandomSource): PointRecord {
 function createNoisePoint(index: number, rng: RandomSource): PointRecord {
   const lon = -170 + rng.next() * 340;
   const lat = -65 + rng.next() * 140;
-  const category = pickCategory(rng, CATEGORIES_BY_SCENARIO.noise);
+  const category = pickCategory(rng, MIXED_CATEGORIES_BY_SCENARIO.noise);
 
   return {
     id: `pt-${index}`,
     lon,
     lat,
-    name: makeName(rng, 'Remote', category),
+    name: makeMixedName(rng, 'Remote', category),
     category,
     weight: makeWeight(rng, category, 0.7),
   };
 }
 
-export function generatePointsDataset(query: DatasetQuery): PointsApiResponse {
-  const rng = createRandomSource(query.seed);
-  const points: PointRecord[] = [];
+function createIndustrialZonePoint(
+  index: number,
+  rng: RandomSource,
+  nameFactory: ReturnType<typeof getIndustrialNameFactory>,
+): PointRecord {
+  const zone = rng.weightedPick(INDUSTRIAL_ZONES, (item) => item.weight);
+  const zoneCenter = getIndustrialZoneCenter(zone.name);
+  const distanceScale = Math.abs(rng.normal(0, zone.spreadKm));
+  const angle = rng.next() * Math.PI * 2;
+  const offset = offsetPoint(
+    zoneCenter.lon,
+    zoneCenter.lat,
+    Math.cos(angle) * distanceScale,
+    Math.sin(angle) * distanceScale,
+  );
+  const category = pickCategory(rng, zone.categories);
 
-  const urbanCount = Math.floor(query.count * 0.58);
-  const sparseCount = Math.floor(query.count * 0.17);
-  const corridorCount = Math.floor(query.count * 0.15);
-  const noiseCount = query.count - urbanCount - sparseCount - corridorCount;
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: nameFactory.makeName(zone.name, category, index, rng),
+    category,
+    weight: makeWeight(rng, category, zone.intensity),
+  };
+}
+
+function createIndustrialCorridorPoint(
+  index: number,
+  rng: RandomSource,
+  nameFactory: ReturnType<typeof getIndustrialNameFactory>,
+): PointRecord {
+  const corridor = rng.weightedPick(INDUSTRIAL_CORRIDORS, (item) => item.weight);
+  const fromCenter = getIndustrialZoneCenter(corridor.fromZone);
+  const toCenter = getIndustrialZoneCenter(corridor.toZone);
+  const progress = rng.next();
+  const lon = fromCenter.lon + (toCenter.lon - fromCenter.lon) * progress;
+  const lat = fromCenter.lat + (toCenter.lat - fromCenter.lat) * progress;
+  const heading = Math.atan2(toCenter.lat - fromCenter.lat, toCenter.lon - fromCenter.lon);
+  const lateralJitter = rng.normal(0, corridor.jitterKm);
+  const axialJitter = rng.normal(0, corridor.jitterKm * 0.35);
+  const offset = offsetPoint(
+    lon,
+    lat,
+    Math.cos(heading) * axialJitter - Math.sin(heading) * lateralJitter,
+    Math.sin(heading) * axialJitter + Math.cos(heading) * lateralJitter,
+  );
+  const category = pickCategory(rng, corridor.categories);
+
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: nameFactory.makeName(corridor.name, category, index, rng),
+    category,
+    weight: makeWeight(rng, category, corridor.intensity),
+  };
+}
+
+function createIndustrialSupportPoint(
+  index: number,
+  rng: RandomSource,
+  nameFactory: ReturnType<typeof getIndustrialNameFactory>,
+): PointRecord {
+  const distanceScale = Math.abs(rng.normal(0, 2.9));
+  const angle = rng.next() * Math.PI * 2;
+  const offset = offsetPoint(
+    INDUSTRIAL_COMPLEX.lon,
+    INDUSTRIAL_COMPLEX.lat,
+    Math.cos(angle) * distanceScale,
+    Math.sin(angle) * distanceScale,
+  );
+  const category = pickCategory(rng, INDUSTRIAL_SUPPORT_CATEGORIES);
+  const supportZones = [
+    'Perimeter Service Loop',
+    'Operations Buffer Yard',
+    'Security Checkpoint Ring',
+    'Utility Access Grid',
+  ] as const;
+
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: nameFactory.makeName(rng.pick(supportZones), category, index, rng),
+    category,
+    weight: makeWeight(rng, category, 0.92),
+  };
+}
+
+function generateMixedPoints(count: number, rng: RandomSource): PointRecord[] {
+  const points: PointRecord[] = [];
+  const urbanCount = Math.floor(count * 0.58);
+  const sparseCount = Math.floor(count * 0.17);
+  const corridorCount = Math.floor(count * 0.15);
+  const noiseCount = count - urbanCount - sparseCount - corridorCount;
 
   for (let index = 0; index < urbanCount; index += 1) {
     points.push(createUrbanPoint(points.length, rng));
@@ -282,6 +683,38 @@ export function generatePointsDataset(query: DatasetQuery): PointsApiResponse {
   for (let index = 0; index < noiseCount; index += 1) {
     points.push(createNoisePoint(points.length, rng));
   }
+
+  return points;
+}
+
+function generateIndustrialPoints(count: number, rng: RandomSource, seed: number): PointRecord[] {
+  const points: PointRecord[] = [];
+  const nameFactory = getIndustrialNameFactory(seed);
+  const zoneCount = Math.floor(count * 0.72);
+  const corridorCount = Math.floor(count * 0.2);
+  const supportCount = count - zoneCount - corridorCount;
+
+  for (let index = 0; index < zoneCount; index += 1) {
+    points.push(createIndustrialZonePoint(points.length, rng, nameFactory));
+  }
+
+  for (let index = 0; index < corridorCount; index += 1) {
+    points.push(createIndustrialCorridorPoint(points.length, rng, nameFactory));
+  }
+
+  for (let index = 0; index < supportCount; index += 1) {
+    points.push(createIndustrialSupportPoint(points.length, rng, nameFactory));
+  }
+
+  return points;
+}
+
+export function generatePointsDataset(query: DatasetQuery): PointsApiResponse {
+  const rng = createRandomSource(query.seed);
+  const points =
+    query.mode === 'industrial'
+      ? generateIndustrialPoints(query.count, rng, query.seed)
+      : generateMixedPoints(query.count, rng);
 
   return {
     meta: {

@@ -1,6 +1,6 @@
-export type DatasetMode = 'mixed';
+export type DatasetMode = 'mixed' | 'industrial';
 
-export type PointCategory =
+export type GeneralPointCategory =
   | 'restaurant'
   | 'transit'
   | 'office'
@@ -9,6 +9,18 @@ export type PointCategory =
   | 'retail'
   | 'healthcare'
   | 'warehouse';
+
+export type IndustrialPointCategory =
+  | 'process_unit'
+  | 'utilities'
+  | 'storage'
+  | 'maintenance'
+  | 'logistics'
+  | 'safety'
+  | 'laboratory'
+  | 'administration';
+
+export type PointCategory = GeneralPointCategory | IndustrialPointCategory;
 
 export interface PointRecord {
   id: string;
@@ -51,4 +63,3 @@ export interface HealthApiResponse {
 }
 
 export type LonLatBbox = [west: number, south: number, east: number, north: number];
-
