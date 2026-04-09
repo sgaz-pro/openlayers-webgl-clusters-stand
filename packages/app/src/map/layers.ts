@@ -37,6 +37,7 @@ const CLUSTER_STYLE = {
 };
 
 const labelStyleCache = new Map<string, Style>();
+const clusterCountStyleCache = new Map<string, Style>();
 const pointIconStyleCache = new Map<PointCategory, Style>();
 const stackedPointStyleCache = new Map<string, Style[]>();
 
@@ -104,6 +105,45 @@ export function createClusterLayer(source: VectorSource<Feature<Point>>) {
     source: source as unknown as VectorSource<FeatureLike>,
     style: CLUSTER_STYLE,
     zIndex: 20,
+  });
+}
+
+export function createClusterCountLayer(source: VectorSource<Feature<Point>>) {
+  return new VectorLayer({
+    source,
+    declutter: false,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    zIndex: 22,
+    style(feature) {
+      const pointCount = feature.get('pointCount') as number | undefined;
+
+      if (!pointCount) {
+        return undefined;
+      }
+
+      const labelText = String(pointCount);
+      const cached = clusterCountStyleCache.get(labelText);
+
+      if (cached) {
+        return cached;
+      }
+
+      const style = new Style({
+        text: new Text({
+          text: labelText,
+          font: '700 12px sans-serif',
+          textAlign: 'center',
+          textBaseline: 'middle',
+          fill: new Fill({ color: '#ffffff' }),
+          stroke: new Stroke({ color: 'rgba(15, 23, 42, 0.55)', width: 3 }),
+          overflow: true,
+        }),
+      });
+
+      clusterCountStyleCache.set(labelText, style);
+      return style;
+    },
   });
 }
 

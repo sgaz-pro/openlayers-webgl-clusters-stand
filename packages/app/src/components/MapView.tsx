@@ -13,7 +13,7 @@ import type { LonLatBbox } from '@shared/points';
 import type { VisibleItem } from '@shared/worker';
 import { FREE_LABEL_ZOOM_THRESHOLD, INITIAL_VIEW, LABEL_QUERY_PADDING_RATIO } from '../constants';
 import { createVisibleFeature, createLabelFeatures } from '../map/featureFactories';
-import { createClusterLayer, createLabelLayer, createPointIconLayer } from '../map/layers';
+import { createClusterCountLayer, createClusterLayer, createLabelLayer, createPointIconLayer } from '../map/layers';
 import { useRootStore } from '../stores/RootStore';
 
 function toLonLatBbox(extent: number[]): LonLatBbox {
@@ -81,6 +81,7 @@ export const MapView = observer(function MapView() {
           zIndex: 0,
         }),
         createClusterLayer(clusterSource),
+        createClusterCountLayer(clusterSource),
         createPointIconLayer(pointSource),
         createLabelLayer(labelsSource),
       ],
