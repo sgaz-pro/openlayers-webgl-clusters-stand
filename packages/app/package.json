@@ -14,19 +14,19 @@
   },
   "dependencies": {
     "bootstrap-icons": "1.13.1",
-    "mobx": "6.13.5",
-    "mobx-react-lite": "4.1.0",
-    "ol": "10.3.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "mobx": "6.15.0",
+    "mobx-react-lite": "4.1.1",
+    "ol": "10.8.0",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "supercluster": "8.0.1"
   },
   "devDependencies": {
     "@types/geojson": "7946.0.16",
-    "@types/node": "22.10.5",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
-    "@vitejs/plugin-react": "4.3.4",
-    "vite": "5.4.11"
+    "@types/node": "25.5.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.1",
+    "vite": "8.0.7"
   }
 }
