@@ -56,6 +56,8 @@ export class ClusterStore {
   lastClusterQueryDurationMs = 0;
   visibleClusters = 0;
   visibleLeafPoints = 0;
+  visibleStackedClusters = 0;
+  visibleMaxStackSize = 1;
   renderedLabels = 0;
   currentZoom = INITIAL_VIEW.zoom;
   isIndexReady = false;
@@ -84,6 +86,8 @@ export class ClusterStore {
     this.lastClusterQueryDurationMs = 0;
     this.visibleClusters = 0;
     this.visibleLeafPoints = 0;
+    this.visibleStackedClusters = 0;
+    this.visibleMaxStackSize = 1;
     this.renderedLabels = 0;
     this.isIndexReady = false;
     this.isApplyingSettings = false;
@@ -177,12 +181,24 @@ export class ClusterStore {
 
     const visibleClusters = result.items.filter((item) => item.kind === 'cluster').length;
     const visibleLeafPoints = result.items.length - visibleClusters;
+    const visibleStackedClusters = result.items.filter(
+      (item): item is Extract<VisibleItem, { kind: 'cluster' }> => item.kind === 'cluster' && item.hasStackedPoints,
+    ).length;
+    const visibleMaxStackSize = result.items.reduce((maxStackSize, item) => {
+      if (item.kind === 'cluster') {
+        return Math.max(maxStackSize, item.maxStackSize);
+      }
+
+      return Math.max(maxStackSize, item.stackSize);
+    }, 1);
 
     runInAction(() => {
       this.visibleItems = result.items;
       this.lastClusterQueryDurationMs = result.durationMs;
       this.visibleClusters = visibleClusters;
       this.visibleLeafPoints = visibleLeafPoints;
+      this.visibleStackedClusters = visibleStackedClusters;
+      this.visibleMaxStackSize = visibleMaxStackSize;
     });
   }
 

@@ -54,10 +54,11 @@ Core idea:
 - User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
 - Loading phases are: `idle`, `downloading`, `parsing`, `indexing`, `ready`, `error`.
 - The app targets `0.0.0.0` for dev host binding.
-- Supported dataset modes are `mixed` and `industrial`.
+- Supported dataset modes are `mixed`, `industrial` and `coincident`.
 - The client shell currently uses native browser controls and lightweight custom CSS.
-- Clusters are rendered as circles, while visible leaf points use category-specific SVG icons.
-- Point names are rendered in a separate decluttered layer to the right of the icon.
+- Clusters are rendered as circles, with orange styling when they contain stacked same-coordinate leaves.
+- Visible leaf points use category-specific SVG icons; stacked leaves get a temporary `xN` badge until custom expansion logic exists.
+- Point names are rendered in a separate decluttered layer to the right of the icon, and stacked coordinates only render one label with the stack count.
 - At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
 - Cluster query zoom is intentionally compressed near the top of the zoom range so dense areas only fully раскрываются on the last two view zoom levels.
 - The display section now exposes editable `supercluster` parameters plus `denseRevealViewZoom`, and applying them rebuilds the worker index without re-downloading the dataset.

@@ -113,6 +113,15 @@ Returns a concentrated industrial dataset around a large petrochemical complex:
 - storage, logistics, maintenance, safety and laboratory points
 - long engineering-style observable names generated with `faker`
 
+### `GET /api/points?count=100000&seed=42&mode=coincident`
+
+Returns a deterministic two-city dataset designed to stress clusters with identical coordinates:
+
+- two neighboring cities in the Lower Kama region
+- several hotspot anchors per city with exact same-coordinate point stacks
+- additional halo points around each hotspot so not every point is coincident
+- inter-city corridor points between the two urban areas
+
 Each point contains:
 
 - `id`
@@ -151,9 +160,9 @@ Responses include `Vary: Accept-Encoding`, and unsupported-only encoding request
 ### Rendering strategy
 
 - Base map: OSM tile layer in EPSG:3857
-- Clusters: WebGL circles
-- Single points: category-based SVG icons
-- Text labels: separate `VectorLayer` for visible leaf points, rendered to the right of the icon
+- Clusters: WebGL circles, with orange styling when a cluster contains stacked same-coordinate leaves
+- Single points: category-based SVG icons, with `xN` badges for visible stacked leaves
+- Text labels: separate `VectorLayer` for visible leaf points, rendered to the right of the icon and deduplicated per stacked coordinate
 - Cluster refresh: only on `moveend`
 - Cluster click: `getClusterExpansionZoom()` in the worker, then view animation
 
@@ -163,7 +172,7 @@ This keeps the main thread focused on UI and OpenLayers rendering while the inde
 
 - The app starts in `idle`.
 - User chooses observable count and dataset type in the connection form.
-- Supported dataset types are `mixed` and `industrial`.
+- Supported dataset types are `mixed`, `industrial` and `coincident`.
 
 ## Debug panel
 
@@ -177,6 +186,8 @@ The UI exposes these stats:
 - last cluster query duration
 - visible clusters
 - visible leaf points
+- visible overlapping clusters
+- maximum visible stack size
 - rendered labels
 - current zoom
 

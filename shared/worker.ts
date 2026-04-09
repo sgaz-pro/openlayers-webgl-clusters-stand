@@ -58,6 +58,9 @@ export interface ClusterItem {
   lat: number;
   pointCount: number;
   abbreviatedCount: number;
+  hasStackedPoints: boolean;
+  stackedPointCount: number;
+  maxStackSize: number;
 }
 
 export interface LeafPointItem {
@@ -68,6 +71,7 @@ export interface LeafPointItem {
   name: string;
   category: PointCategory;
   weight: number;
+  stackSize: number;
 }
 
 export type VisibleItem = ClusterItem | LeafPointItem;

@@ -36,6 +36,23 @@ interface Corridor {
   weight: number;
 }
 
+interface CoincidentHotspot {
+  name: string;
+  dxKm: number;
+  dyKm: number;
+  spreadKm: number;
+  weight: number;
+  categories: ReadonlyArray<readonly [GeneralPointCategory, number]>;
+}
+
+interface CoincidentCity {
+  name: string;
+  lon: number;
+  lat: number;
+  spreadKm: number;
+  hotspots: ReadonlyArray<CoincidentHotspot>;
+}
+
 interface IndustrialZone {
   name: string;
   dxKm: number;
@@ -177,6 +194,151 @@ const MIXED_NAME_PARTS: Record<GeneralPointCategory, readonly string[]> = {
   healthcare: ['Clinic', 'Health Center', 'Care Point', 'Medical Hub', 'Hospital', 'Wellness Center'],
   warehouse: ['Logistics Yard', 'Depot', 'Fulfillment Center', 'Warehouse', 'Cargo Hub', 'Storage Point'],
 };
+
+const COINCIDENT_CITIES = [
+  {
+    name: 'Naberezhnye Chelny',
+    lon: 52.403,
+    lat: 55.743,
+    spreadKm: 7.8,
+    hotspots: [
+      {
+        name: 'Central Station',
+        dxKm: -1.7,
+        dyKm: 0.6,
+        spreadKm: 0.42,
+        weight: 11,
+        categories: [
+          ['transit', 18],
+          ['retail', 10],
+          ['office', 8],
+          ['restaurant', 6],
+        ],
+      },
+      {
+        name: 'Riverside Mall',
+        dxKm: 1.3,
+        dyKm: 0.9,
+        spreadKm: 0.38,
+        weight: 9,
+        categories: [
+          ['retail', 18],
+          ['restaurant', 12],
+          ['office', 6],
+          ['healthcare', 4],
+        ],
+      },
+      {
+        name: 'Tech Quarter',
+        dxKm: -0.4,
+        dyKm: -1.6,
+        spreadKm: 0.34,
+        weight: 8,
+        categories: [
+          ['office', 16],
+          ['school', 10],
+          ['healthcare', 8],
+          ['transit', 4],
+        ],
+      },
+      {
+        name: 'South District Hub',
+        dxKm: 1.8,
+        dyKm: -1.1,
+        spreadKm: 0.46,
+        weight: 7,
+        categories: [
+          ['school', 12],
+          ['healthcare', 10],
+          ['restaurant', 7],
+          ['retail', 5],
+        ],
+      },
+    ],
+  },
+  {
+    name: 'Nizhnekamsk',
+    lon: 51.814,
+    lat: 55.641,
+    spreadKm: 6.9,
+    hotspots: [
+      {
+        name: 'Central Station',
+        dxKm: -1.3,
+        dyKm: 0.5,
+        spreadKm: 0.38,
+        weight: 10,
+        categories: [
+          ['transit', 18],
+          ['retail', 9],
+          ['office', 7],
+          ['restaurant', 5],
+        ],
+      },
+      {
+        name: 'Market Square',
+        dxKm: 1.1,
+        dyKm: 0.8,
+        spreadKm: 0.4,
+        weight: 9,
+        categories: [
+          ['retail', 18],
+          ['restaurant', 11],
+          ['office', 6],
+          ['healthcare', 4],
+        ],
+      },
+      {
+        name: 'Medical Campus',
+        dxKm: -0.2,
+        dyKm: -1.4,
+        spreadKm: 0.33,
+        weight: 8,
+        categories: [
+          ['healthcare', 18],
+          ['office', 8],
+          ['school', 6],
+          ['transit', 4],
+        ],
+      },
+      {
+        name: 'West Residential Hub',
+        dxKm: 1.6,
+        dyKm: -1.2,
+        spreadKm: 0.44,
+        weight: 7,
+        categories: [
+          ['school', 12],
+          ['healthcare', 10],
+          ['restaurant', 7],
+          ['retail', 5],
+        ],
+      },
+    ],
+  },
+] satisfies readonly [CoincidentCity, CoincidentCity];
+
+const COINCIDENT_CITY_CATEGORIES: ReadonlyArray<readonly [GeneralPointCategory, number]> = [
+  ['restaurant', 12],
+  ['transit', 10],
+  ['office', 14],
+  ['school', 9],
+  ['park', 4],
+  ['retail', 13],
+  ['healthcare', 8],
+  ['warehouse', 5],
+];
+
+const COINCIDENT_CORRIDOR_CATEGORIES: ReadonlyArray<readonly [GeneralPointCategory, number]> = [
+  ['transit', 16],
+  ['warehouse', 14],
+  ['retail', 8],
+  ['office', 6],
+  ['restaurant', 5],
+  ['healthcare', 3],
+  ['school', 2],
+  ['park', 1],
+];
 
 const INDUSTRIAL_COMPLEX = {
   name: 'Nizhnekamsk Integrated Petrochemical Complex',
@@ -661,6 +823,108 @@ function createIndustrialSupportPoint(
   };
 }
 
+function getCoincidentHotspotCenter(city: CoincidentCity, hotspot: CoincidentHotspot): LocationPoint {
+  return offsetPoint(city.lon, city.lat, hotspot.dxKm, hotspot.dyKm);
+}
+
+function createCoincidentUrbanPoint(index: number, city: CoincidentCity, rng: RandomSource): PointRecord {
+  const distanceScale = Math.abs(rng.normal(0, city.spreadKm));
+  const angle = rng.next() * Math.PI * 2;
+  const offset = offsetPoint(
+    city.lon,
+    city.lat,
+    Math.cos(angle) * distanceScale,
+    Math.sin(angle) * distanceScale,
+  );
+  const category = pickCategory(rng, COINCIDENT_CITY_CATEGORIES);
+
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: makeMixedName(rng, city.name, category),
+    category,
+    weight: makeWeight(rng, category, 1.08),
+  };
+}
+
+function createCoincidentHotspotPoint(
+  index: number,
+  city: CoincidentCity,
+  rng: RandomSource,
+  exactCoordinates: boolean,
+): PointRecord {
+  const hotspot = rng.weightedPick(city.hotspots, (item) => item.weight);
+  const hotspotCenter = getCoincidentHotspotCenter(city, hotspot);
+  const offset = exactCoordinates
+    ? hotspotCenter
+    : offsetPoint(
+        hotspotCenter.lon,
+        hotspotCenter.lat,
+        rng.normal(0, hotspot.spreadKm),
+        rng.normal(0, hotspot.spreadKm),
+      );
+  const category = pickCategory(rng, hotspot.categories);
+
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: makeMixedName(rng, `${city.name} ${hotspot.name}`, category),
+    category,
+    weight: makeWeight(rng, category, exactCoordinates ? 1.3 : 1.16),
+  };
+}
+
+function createCoincidentCorridorPoint(index: number, rng: RandomSource): PointRecord {
+  const [fromCity, toCity] = COINCIDENT_CITIES;
+  const progress = rng.next();
+  const lon = fromCity.lon + (toCity.lon - fromCity.lon) * progress;
+  const lat = fromCity.lat + (toCity.lat - fromCity.lat) * progress;
+  const heading = Math.atan2(toCity.lat - fromCity.lat, toCity.lon - fromCity.lon);
+  const lateralJitter = rng.normal(0, 1.8);
+  const axialJitter = rng.normal(0, 0.7);
+  const offset = offsetPoint(
+    lon,
+    lat,
+    Math.cos(heading) * axialJitter - Math.sin(heading) * lateralJitter,
+    Math.sin(heading) * axialJitter + Math.cos(heading) * lateralJitter,
+  );
+  const category = pickCategory(rng, COINCIDENT_CORRIDOR_CATEGORIES);
+
+  return {
+    id: `pt-${index}`,
+    lon: offset.lon,
+    lat: offset.lat,
+    name: makeMixedName(rng, 'Lower Kama Link', category),
+    category,
+    weight: makeWeight(rng, category, 0.96),
+  };
+}
+
+function appendCoincidentCityPoints(
+  points: PointRecord[],
+  city: CoincidentCity,
+  count: number,
+  rng: RandomSource,
+): void {
+  const exactHotspotCount = Math.floor(count * 0.18);
+  const hotspotHaloCount = Math.floor(count * 0.24);
+  const urbanCount = count - exactHotspotCount - hotspotHaloCount;
+
+  for (let index = 0; index < urbanCount; index += 1) {
+    points.push(createCoincidentUrbanPoint(points.length, city, rng));
+  }
+
+  for (let index = 0; index < hotspotHaloCount; index += 1) {
+    points.push(createCoincidentHotspotPoint(points.length, city, rng, false));
+  }
+
+  for (let index = 0; index < exactHotspotCount; index += 1) {
+    points.push(createCoincidentHotspotPoint(points.length, city, rng, true));
+  }
+}
+
 function generateMixedPoints(count: number, rng: RandomSource): PointRecord[] {
   const points: PointRecord[] = [];
   const urbanCount = Math.floor(count * 0.58);
@@ -709,12 +973,33 @@ function generateIndustrialPoints(count: number, rng: RandomSource, seed: number
   return points;
 }
 
+function generateCoincidentPoints(count: number, rng: RandomSource): PointRecord[] {
+  const points: PointRecord[] = [];
+  const cityOneCount = Math.floor(count * 0.44);
+  const cityTwoCount = Math.floor(count * 0.44);
+  const corridorCount = count - cityOneCount - cityTwoCount;
+
+  appendCoincidentCityPoints(points, COINCIDENT_CITIES[0], cityOneCount, rng);
+  appendCoincidentCityPoints(points, COINCIDENT_CITIES[1], cityTwoCount, rng);
+
+  for (let index = 0; index < corridorCount; index += 1) {
+    points.push(createCoincidentCorridorPoint(points.length, rng));
+  }
+
+  return points;
+}
+
 export function generatePointsDataset(query: DatasetQuery): PointsApiResponse {
   const rng = createRandomSource(query.seed);
-  const points =
-    query.mode === 'industrial'
-      ? generateIndustrialPoints(query.count, rng, query.seed)
-      : generateMixedPoints(query.count, rng);
+  let points: PointRecord[];
+
+  if (query.mode === 'industrial') {
+    points = generateIndustrialPoints(query.count, rng, query.seed);
+  } else if (query.mode === 'coincident') {
+    points = generateCoincidentPoints(query.count, rng);
+  } else {
+    points = generateMixedPoints(query.count, rng);
+  }
 
   return {
     meta: {

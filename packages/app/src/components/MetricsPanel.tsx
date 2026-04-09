@@ -51,6 +51,14 @@ export const MetricsPanel = observer(function MetricsPanel() {
       value: clusterStore.visibleLeafPoints.toLocaleString(),
     },
     {
+      label: 'Кластеров с наложением',
+      value: clusterStore.visibleStackedClusters.toLocaleString(),
+    },
+    {
+      label: 'Макс. размер стека',
+      value: clusterStore.visibleMaxStackSize.toLocaleString(),
+    },
+    {
       label: 'Подписей на карте',
       value: clusterStore.renderedLabels.toLocaleString(),
     },

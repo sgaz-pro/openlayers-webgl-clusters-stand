@@ -1,4 +1,4 @@
-export type DatasetMode = 'mixed' | 'industrial';
+export type DatasetMode = 'mixed' | 'industrial' | 'coincident';
 
 export type GeneralPointCategory =
   | 'restaurant'

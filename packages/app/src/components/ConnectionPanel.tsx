@@ -69,6 +69,9 @@ export const ConnectionPanel = observer(function ConnectionPanel({ onConnect }: 
   const { datasetStore, healthStore } = useRootStore();
   const [observableCountInput, setObservableCountInput] = useState(String(DEFAULT_DATASET_QUERY.count));
   const [datasetModeInput, setDatasetModeInput] = useState<DatasetMode>(DEFAULT_DATASET_QUERY.mode);
+  const selectedModeDescription = DATASET_MODE_OPTIONS.find(
+    (option) => option.value === datasetModeInput,
+  )?.description ?? '';
 
   const count = clampObservableCount(observableCountInput);
 
@@ -167,6 +170,7 @@ export const ConnectionPanel = observer(function ConnectionPanel({ onConnect }: 
               </option>
             ))}
           </select>
+          <p className="placeholder-copy">{selectedModeDescription}</p>
         </label>
 
         {datasetStore.phase !== 'idle' ? (

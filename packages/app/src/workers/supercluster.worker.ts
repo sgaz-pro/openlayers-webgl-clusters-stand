@@ -11,19 +11,29 @@ import type {
   WorkerResponse,
 } from '@shared/worker';
 
-type ClusterProperties = {
+type IndexedPointProperties = PointRecord & {
+  stackSize: number;
+};
+
+type ClusterAggregation = {
+  hasStackedPoints: boolean;
+  stackedPointCount: number;
+  maxStackSize: number;
+};
+
+type ClusterProperties = ClusterAggregation & {
   cluster: true;
   cluster_id: number;
   point_count: number;
   point_count_abbreviated: number | string;
 };
 
-type IndexedFeature = Feature<Point, PointRecord>;
-type QueriedFeature = Feature<Point, PointRecord | ClusterProperties>;
+type IndexedFeature = Feature<Point, IndexedPointProperties>;
+type QueriedFeature = Feature<Point, IndexedPointProperties | ClusterProperties>;
 type IndexBuildRequestType = 'build-index' | 'rebuild-index';
 
 const workerScope = self as DedicatedWorkerGlobalScope;
-let clusterIndex: Supercluster<PointRecord, ClusterProperties> | null = null;
+let clusterIndex: Supercluster<IndexedPointProperties, ClusterAggregation> | null = null;
 let indexedFeatures: IndexedFeature[] = [];
 const jsonDecoder = new TextDecoder();
 
@@ -31,7 +41,9 @@ function postMessage(message: WorkerResponse): void {
   workerScope.postMessage(message);
 }
 
-function isClusterProperties(properties: PointRecord | ClusterProperties): properties is ClusterProperties {
+function isClusterProperties(
+  properties: IndexedPointProperties | ClusterProperties,
+): properties is ClusterProperties {
   return 'cluster' in properties && properties.cluster === true;
 }
 
@@ -52,6 +64,9 @@ function toVisibleItem(feature: QueriedFeature): VisibleItem {
       lat,
       pointCount: properties.point_count,
       abbreviatedCount,
+      hasStackedPoints: properties.hasStackedPoints,
+      stackedPointCount: properties.stackedPointCount,
+      maxStackSize: properties.maxStackSize,
     };
   }
 
@@ -63,10 +78,11 @@ function toVisibleItem(feature: QueriedFeature): VisibleItem {
     name: properties.name,
     category: properties.category,
     weight: properties.weight,
+    stackSize: properties.stackSize,
   };
 }
 
-function ensureIndex(): Supercluster<PointRecord, ClusterProperties> {
+function ensureIndex(): Supercluster<IndexedPointProperties, ClusterAggregation> {
   if (!clusterIndex) {
     throw new Error('Cluster index has not been built yet');
   }
@@ -93,14 +109,44 @@ function parsePointsPayload(jsonBuffer: ArrayBuffer): PointsApiResponse {
   return payload;
 }
 
+function toCoordinateKey(lon: number, lat: number): string {
+  return `${lon},${lat}`;
+}
+
+function getStackSizes(points: PointRecord[]): Map<string, number> {
+  const stackSizes = new Map<string, number>();
+
+  for (const point of points) {
+    const key = toCoordinateKey(point.lon, point.lat);
+    stackSizes.set(key, (stackSizes.get(key) ?? 0) + 1);
+  }
+
+  return stackSizes;
+}
+
+function createClusterAggregation(properties: IndexedPointProperties): ClusterAggregation {
+  const isStacked = properties.stackSize > 1;
+
+  return {
+    hasStackedPoints: isStacked,
+    stackedPointCount: isStacked ? 1 : 0,
+    maxStackSize: properties.stackSize,
+  };
+}
+
 function toIndexedFeatures(points: PointRecord[]): IndexedFeature[] {
+  const stackSizes = getStackSizes(points);
+
   return points.map((point) => ({
     type: 'Feature',
     geometry: {
       type: 'Point',
       coordinates: [point.lon, point.lat],
     },
-    properties: point,
+    properties: {
+      ...point,
+      stackSize: stackSizes.get(toCoordinateKey(point.lon, point.lat)) ?? 1,
+    },
   }));
 }
 
@@ -131,13 +177,19 @@ function buildClusterIndex(
   postIndexBuildProgress(requestId, requestType, features.length, parseDurationMs);
 
   const indexBuildStartedAt = performance.now();
-  const index = new Supercluster<PointRecord, ClusterProperties>({
+  const index = new Supercluster<IndexedPointProperties, ClusterAggregation>({
     radius: options.radius,
     maxZoom: options.maxZoom,
     minZoom: options.minZoom,
     minPoints: options.minPoints,
     extent: options.extent,
     nodeSize: options.nodeSize,
+    map: createClusterAggregation,
+    reduce: (accumulated, properties) => {
+      accumulated.hasStackedPoints = accumulated.hasStackedPoints || properties.hasStackedPoints;
+      accumulated.stackedPointCount += properties.stackedPointCount;
+      accumulated.maxStackSize = Math.max(accumulated.maxStackSize, properties.maxStackSize);
+    },
   });
 
   clusterIndex = index.load(features);

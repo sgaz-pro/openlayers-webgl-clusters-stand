@@ -26,11 +26,17 @@ export const DATASET_MODE_OPTIONS: Array<{
     label: '2. Concentrated industrial',
     description: 'Сконцентрированный датасет внутри большого промышленного комплекса.',
   },
+  {
+    value: 'coincident',
+    label: '3. Coincident hotspots',
+    description: 'Два соседних города с hotspot-зонами, где часть точек имеет одинаковые координаты.',
+  },
 ];
 
 export const DATASET_MODE_LABELS: Record<DatasetMode, string> = {
   mixed: 'Mixed world',
   industrial: 'Concentrated industrial',
+  coincident: 'Coincident hotspots',
 };
 
 export const INITIAL_VIEW = {

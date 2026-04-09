@@ -50,6 +50,8 @@ export const MapView = observer(function MapView() {
   const { clusterStore, datasetStore } = useRootStore();
   const visibleItems = clusterStore.visibleItems;
   const indexRevision = clusterStore.indexRevision;
+  const visibleStackedClusters = clusterStore.visibleStackedClusters;
+  const visibleMaxStackSize = clusterStore.visibleMaxStackSize;
   const phase = datasetStore.phase;
   const errorMessage = datasetStore.errorMessage;
 
@@ -210,6 +212,16 @@ export const MapView = observer(function MapView() {
       <div ref={containerRef} className="map-root" />
       <div className="map-overlay">
         <div className="overlay-chip">EPSG:3857 / OSM / SVG point icons</div>
+        {phase === 'ready' && visibleStackedClusters > 0 ? (
+          <div className="overlay-chip">
+            Оранжевые кластеры содержат точки с одинаковыми координатами, max stack x{visibleMaxStackSize}
+          </div>
+        ) : null}
+        {phase === 'ready' && visibleStackedClusters === 0 && visibleMaxStackSize > 1 ? (
+          <div className="overlay-chip">
+            В текущем окне уже видны совпадающие координаты, max stack x{visibleMaxStackSize}
+          </div>
+        ) : null}
         {phase !== 'ready' ? <div className="overlay-status">phase: {phase}</div> : null}
         {phase === 'idle' ? <div className="overlay-status">Нажмите «Подключиться», чтобы запустить загрузку</div> : null}
         {errorMessage ? <div className="overlay-error">{errorMessage}</div> : null}

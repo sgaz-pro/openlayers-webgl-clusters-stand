@@ -9,7 +9,7 @@ export const DEFAULT_QUERY: DatasetQuery = {
   mode: 'mixed',
 };
 
-export const SUPPORTED_MODES: DatasetMode[] = ['mixed', 'industrial'];
+export const SUPPORTED_MODES: DatasetMode[] = ['mixed', 'industrial', 'coincident'];
 export const MAX_COUNT = 250_000;
 export const STREAM_CHUNK_SIZE = 64 * 1024;
 

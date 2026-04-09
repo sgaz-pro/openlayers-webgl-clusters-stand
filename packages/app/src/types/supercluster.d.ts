@@ -1,7 +1,7 @@
 declare module 'supercluster' {
   import type { Feature, Point } from 'geojson';
 
-  export interface SuperclusterOptions {
+  export interface SuperclusterOptions<P = Record<string, unknown>, C = Record<string, unknown>> {
     minZoom?: number;
     maxZoom?: number;
     minPoints?: number;
@@ -10,6 +10,8 @@ declare module 'supercluster' {
     nodeSize?: number;
     log?: boolean;
     generateId?: boolean;
+    map?: (properties: P) => C;
+    reduce?: (accumulated: C, properties: C) => void;
   }
 
   export interface ClusterFeatureProperties {
@@ -20,7 +22,7 @@ declare module 'supercluster' {
   }
 
   export default class Supercluster<P = Record<string, unknown>, C = Record<string, unknown>> {
-    constructor(options?: SuperclusterOptions);
+    constructor(options?: SuperclusterOptions<P, C>);
     load(points: Array<Feature<Point, P>>): this;
     getClusters(
       bbox: [number, number, number, number],
