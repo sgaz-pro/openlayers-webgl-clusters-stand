@@ -56,8 +56,8 @@ The demo loads a large dataset with one `GET` request, shows download progress, 
 
 Requirements:
 
-- Node.js 20+
-- npm 10+
+- Node.js 24.x
+- npm 11.x
 
 Install dependencies:
 

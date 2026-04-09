@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test server API
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PORT=3001 HOST=127.0.0.1 node dist/packages/server/src/index.js > /tmp/openlayers-largecluster-demo-server.log 2>&1 &
+          SERVER_PID=$!
+
+          cleanup() {
+            kill "$SERVER_PID" >/dev/null 2>&1 || true
+          }
+
+          trap cleanup EXIT
+
+          for _ in {1..30}; do
+            if curl -fsS "http://127.0.0.1:3001/api/health" >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS "http://127.0.0.1:3001/api/health" >/dev/null
+          curl -fsS "http://127.0.0.1:3001/api/meta" >/dev/null
+          curl -fsS "http://127.0.0.1:3001/api/points?count=1000&seed=42&mode=mixed" >/dev/null
+          curl -fsS "http://127.0.0.1:3001/api/points?count=1000&seed=42&mode=industrial" >/dev/null
+
+          HEADERS_FILE="$(mktemp)"
+          curl -fsS -H "Accept-Encoding: gzip" -D "$HEADERS_FILE" -o /dev/null \
+            "http://127.0.0.1:3001/api/points?count=1000&seed=42&mode=mixed"
+
+          grep -iq '^content-encoding: gzip' "$HEADERS_FILE"
+          grep -iq '^x-uncompressed-content-length:' "$HEADERS_FILE"

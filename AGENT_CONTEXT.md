@@ -6,6 +6,7 @@ It is intentionally shorter and more task-focused than `README.md`.
 ## Purpose
 
 The project is a TypeScript monorepo demo for exploring large point datasets on an OpenLayers map.
+The repo is currently standardized on Node.js 24 and npm 11 for local work and CI.
 
 Core idea:
 
@@ -19,6 +20,8 @@ Core idea:
 
 ## Top-level map
 
+- `.github/workflows`: CI and scheduled security automation
+- `.github/dependabot.yml`: dependency update cadence and grouping
 - `shared/points.ts`: API and dataset contracts
 - `shared/worker.ts`: worker RPC contracts
 - `packages/server`: HTTP API and synthetic dataset generator
@@ -38,6 +41,8 @@ Core idea:
 - `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
 - `packages/app/src/stores/ClusterStore.ts`: worker RPC and visible cluster state
 - `packages/app/src/workers/supercluster.worker.ts`: off-thread cluster index
+- `.github/workflows/ci.yml`: typecheck and build on `push`/`pull_request`, server smoke test only on manual `workflow_dispatch`
+- `.github/workflows/codeql.yml`: scheduled CodeQL scan for JS/TS
 
 ## Current runtime behavior
 
@@ -100,6 +105,12 @@ If you need to change the overlay shell / right panel layout:
 - `packages/app/src/components/ConnectionPanel.tsx`
 - `packages/app/src/components/DisplayPanel.tsx`
 - `packages/app/src/components/MetricsPanel.tsx`
+
+If you need to change repository automation:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/codeql.yml`
+- `.github/dependabot.yml`
 
 If you need to change server-side data realism:
 
