@@ -1,4 +1,4 @@
-import type { LonLatBbox, PointCategory } from './points';
+import type { LonLatBbox, ObservableData, ObservableMutationMessage, PointCategory } from './points';
 
 export interface ClusterIndexOptions {
   radius: number;
@@ -30,6 +30,20 @@ export type RebuildIndexRequest = WorkerMessageBase<
   }
 >;
 
+export type ApplyObservableMutationsRequest = WorkerMessageBase<
+  'apply-observable-mutations',
+  {
+    message: ObservableMutationMessage;
+  }
+>;
+
+export type FlushIndexRequest = WorkerMessageBase<
+  'flush-index',
+  {
+    options: ClusterIndexOptions;
+  }
+>;
+
 export type QueryClustersRequest = WorkerMessageBase<
   'query-clusters',
   {
@@ -48,6 +62,8 @@ export type GetExpansionZoomRequest = WorkerMessageBase<
 export type WorkerRequest =
   | BuildIndexRequest
   | RebuildIndexRequest
+  | ApplyObservableMutationsRequest
+  | FlushIndexRequest
   | QueryClustersRequest
   | GetExpansionZoomRequest;
 
@@ -65,12 +81,12 @@ export interface ClusterItem {
 
 export interface LeafPointItem {
   kind: 'point';
-  id: string;
-  lon: number;
-  lat: number;
-  name: string;
+  id: ObservableData['id'];
+  lon: ObservableData['lon'];
+  lat: ObservableData['lat'];
+  name: ObservableData['name'];
   category: PointCategory;
-  weight: number;
+  weight: ObservableData['weight'];
   stackSize: number;
 }
 
@@ -95,6 +111,23 @@ export type BuildIndexResponse = WorkerMessageBase<'build-index:success', IndexB
 export type RebuildIndexProgressResponse = WorkerMessageBase<'rebuild-index:progress', IndexBuildProgressPayload>;
 
 export type RebuildIndexResponse = WorkerMessageBase<'rebuild-index:success', IndexBuildSuccessPayload>;
+
+export type ApplyObservableMutationsResponse = WorkerMessageBase<
+  'apply-observable-mutations:success',
+  {
+    observableCount: number;
+    dirtyIds: number;
+  }
+>;
+
+export type FlushIndexResponse = WorkerMessageBase<
+  'flush-index:success',
+  {
+    count: number;
+    indexBuildDurationMs: number;
+    didRebuild: boolean;
+  }
+>;
 
 export type QueryClustersResponse = WorkerMessageBase<
   'query-clusters:success',
@@ -124,6 +157,8 @@ export type WorkerResponse =
   | BuildIndexResponse
   | RebuildIndexProgressResponse
   | RebuildIndexResponse
+  | ApplyObservableMutationsResponse
+  | FlushIndexResponse
   | QueryClustersResponse
   | GetExpansionZoomResponse
   | WorkerErrorResponse;

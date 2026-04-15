@@ -1,6 +1,8 @@
 import type {
+  ApplyObservableMutationsResponse,
   BuildIndexResponse,
   ClusterIndexOptions,
+  FlushIndexResponse,
   GetExpansionZoomResponse,
   IndexBuildProgressPayload,
   QueryClustersResponse,
@@ -8,7 +10,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from '@shared/worker';
-import type { LonLatBbox } from '@shared/points';
+import type { LonLatBbox, ObservableMutationMessage } from '@shared/points';
 
 type IndexBuildProgressMessage = Extract<WorkerResponse, { type: 'build-index:progress' | 'rebuild-index:progress' }>;
 
@@ -128,6 +130,22 @@ export class SuperclusterWorkerClient {
     return this.postRequest({
       type: 'query-clusters',
       payload: { bbox, zoom },
+    });
+  }
+
+  applyObservableMutations(
+    message: ObservableMutationMessage,
+  ): Promise<ApplyObservableMutationsResponse['payload']> {
+    return this.postRequest({
+      type: 'apply-observable-mutations',
+      payload: { message },
+    });
+  }
+
+  flushIndex(options: ClusterIndexOptions): Promise<FlushIndexResponse['payload']> {
+    return this.postRequest({
+      type: 'flush-index',
+      payload: { options },
     });
   }
 

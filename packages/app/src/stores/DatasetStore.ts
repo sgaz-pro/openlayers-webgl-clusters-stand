@@ -42,6 +42,7 @@ export class DatasetStore {
   }
 
   async loadDataset(query: DatasetQuery = this.query): Promise<void> {
+    await this.rootStore.observableStreamStore.resetForDatasetReload();
     this.abort();
     this.rootStore.clusterStore.reset();
 

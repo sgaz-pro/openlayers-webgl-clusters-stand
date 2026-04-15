@@ -1,4 +1,4 @@
-import type { DatasetMode, DatasetQuery } from '@shared/points';
+import type { DatasetMode, DatasetQuery, ObservableStreamSettings } from '@shared/points';
 import type { ClusterIndexOptions } from '@shared/worker';
 
 export interface ClusterDisplaySettings extends ClusterIndexOptions {
@@ -9,6 +9,12 @@ export const DEFAULT_DATASET_QUERY: DatasetQuery = {
   count: 100_000,
   seed: 42,
   mode: 'mixed',
+};
+
+export const DEFAULT_OBSERVABLE_STREAM_SETTINGS: ObservableStreamSettings = {
+  sampleMaxCount: 2_000,
+  sampleLongTimeMs: 1_000,
+  sampleBetweenDelayMs: 5_000,
 };
 
 export const DATASET_MODE_OPTIONS: Array<{
@@ -70,3 +76,4 @@ export function toClusterIndexOptions(settings: ClusterDisplaySettings): Cluster
 export const FREE_LABEL_ZOOM_THRESHOLD = INITIAL_VIEW.maxZoom - 0.5;
 export const LABEL_QUERY_PADDING_RATIO = 0.25;
 export const LABEL_RENDER_BUFFER_PX = 256;
+export const LIVE_INDEX_FLUSH_DELAY_MS = 80;
