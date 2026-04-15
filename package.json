@@ -17,6 +17,8 @@
     "typecheck": "npm run typecheck --workspace @demo/server && npm run typecheck --workspace @demo/app"
   },
   "devDependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "typescript": "6.0.2"
   }
 }
