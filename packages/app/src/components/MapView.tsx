@@ -12,8 +12,8 @@ import { fromLonLat } from 'ol/proj.js';
 import type { LonLatBbox } from '@shared/points';
 import type { VisibleItem } from '@shared/worker';
 import { FREE_LABEL_ZOOM_THRESHOLD, INITIAL_VIEW, LABEL_QUERY_PADDING_RATIO } from '../constants';
-import { createVisibleFeature, createLabelFeatures } from '../map/featureFactories';
-import { createClusterCountLayer, createClusterLayer, createLabelLayer, createPointIconLayer } from '../map/layers';
+import { createClusterFeature, createObservableFeature } from '../map/featureFactories';
+import { createClusterCountLayer, createClusterLayer, createObservableLayer } from '../map/layers';
 import { useRootStore } from '../stores/RootStore';
 
 function toLonLatBbox(extent: number[]): LonLatBbox {
@@ -42,13 +42,10 @@ function isClusterItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 
   return item.kind === 'cluster';
 }
 
-function isPointItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 'point' }> {
-  return item.kind === 'point';
-}
-
 export const MapView = observer(function MapView() {
   const { clusterStore, datasetStore } = useRootStore();
   const visibleItems = clusterStore.visibleItems;
+  const visibleObservables = clusterStore.visibleObservables;
   const indexRevision = clusterStore.indexRevision;
   const visibleStackedClusters = clusterStore.visibleStackedClusters;
   const visibleMaxStackSize = clusterStore.visibleMaxStackSize;
@@ -58,8 +55,7 @@ export const MapView = observer(function MapView() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const clusterSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
-  const pointSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
-  const labelsSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
+  const observableSourceRef = useRef<VectorSource<Feature<Point>> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -67,11 +63,9 @@ export const MapView = observer(function MapView() {
     }
 
     const clusterSource = new VectorSource<Feature<Point>>();
-    const pointSource = new VectorSource<Feature<Point>>();
-    const labelsSource = new VectorSource<Feature<Point>>();
+    const observableSource = new VectorSource<Feature<Point>>();
     clusterSourceRef.current = clusterSource;
-    pointSourceRef.current = pointSource;
-    labelsSourceRef.current = labelsSource;
+    observableSourceRef.current = observableSource;
 
     const map = new Map({
       target: containerRef.current,
@@ -82,8 +76,7 @@ export const MapView = observer(function MapView() {
         }),
         createClusterLayer(clusterSource),
         createClusterCountLayer(clusterSource),
-        createPointIconLayer(pointSource),
-        createLabelLayer(labelsSource),
+        createObservableLayer(observableSource),
       ],
       view: new View({
         center: fromLonLat(INITIAL_VIEW.center),
@@ -120,26 +113,44 @@ export const MapView = observer(function MapView() {
     };
 
     const handleSingleClick = (event: { pixel: number[] }): void => {
-      const feature = map.forEachFeatureAtPixel(event.pixel, (hitFeature) => hitFeature as Feature<Point> | undefined);
-
-      if (!feature || feature.get('kind') !== 'cluster') {
-        return;
-      }
-
-      const geometry = feature.getGeometry();
-      const clusterId = feature.get('clusterId') as number | undefined;
-
-      if (!geometry || typeof clusterId !== 'number') {
-        return;
-      }
-
-      void clusterStore.getExpansionZoom(clusterId).then((zoom) => {
-        map.getView().animate({
-          center: geometry.getCoordinates(),
-          zoom,
-          duration: 320,
-        });
+      const hitFeatures: Feature<Point>[] = [];
+      map.forEachFeatureAtPixel(event.pixel, (hitFeature) => {
+        hitFeatures.push(hitFeature as Feature<Point>);
+        return undefined;
       });
+      const feature = hitFeatures[0];
+
+      if (!feature) {
+        clusterStore.clearObservableSelection();
+        return;
+      }
+
+      if (feature.get('kind') === 'cluster') {
+        const geometry = feature.getGeometry();
+        const clusterId = feature.get('clusterId') as number | undefined;
+
+        if (!geometry || typeof clusterId !== 'number') {
+          return;
+        }
+
+        void clusterStore.getExpansionZoom(clusterId).then((zoom) => {
+          map.getView().animate({
+            center: geometry.getCoordinates(),
+            zoom,
+            duration: 320,
+          });
+        });
+        return;
+      }
+
+      const observableId = feature.get('observableId') as string | undefined;
+
+      if (observableId) {
+        clusterStore.selectObservable(observableId);
+        return;
+      }
+
+      clusterStore.clearObservableSelection();
     };
 
     map.on('moveend', handleMoveEnd);
@@ -151,37 +162,37 @@ export const MapView = observer(function MapView() {
       map.setTarget(undefined);
       mapRef.current = null;
       clusterSourceRef.current = null;
-      pointSourceRef.current = null;
-      labelsSourceRef.current = null;
+      observableSourceRef.current = null;
     };
   }, [clusterStore]);
 
   useEffect(() => {
     const clusterSource = clusterSourceRef.current;
-    const pointSource = pointSourceRef.current;
-    const labelsSource = labelsSourceRef.current;
 
-    if (!clusterSource || !pointSource || !labelsSource) {
+    if (!clusterSource) {
       return;
     }
 
     clusterSource.clear(true);
-    pointSource.clear(true);
-    labelsSource.clear(true);
 
     if (visibleItems.length > 0) {
-      clusterSource.addFeatures(visibleItems.filter(isClusterItem).map(createVisibleFeature));
-      pointSource.addFeatures(visibleItems.filter(isPointItem).map(createVisibleFeature));
+      clusterSource.addFeatures(visibleItems.filter(isClusterItem).map(createClusterFeature));
+    }
+  }, [visibleItems]);
+
+  useEffect(() => {
+    const observableSource = observableSourceRef.current;
+
+    if (!observableSource) {
+      return;
     }
 
-    const labelFeatures = createLabelFeatures(visibleItems);
+    observableSource.clear(true);
 
-    if (labelFeatures.length > 0) {
-      labelsSource.addFeatures(labelFeatures);
+    if (visibleObservables.length > 0) {
+      observableSource.addFeatures(visibleObservables.map(createObservableFeature));
     }
-
-    clusterStore.setRenderedLabels(labelFeatures.length);
-  }, [clusterStore, visibleItems]);
+  }, [visibleObservables]);
 
   useEffect(() => {
     if (phase !== 'ready') {

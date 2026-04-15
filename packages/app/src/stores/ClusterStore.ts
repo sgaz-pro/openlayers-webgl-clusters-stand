@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { LonLatBbox } from '@shared/points';
 import type { BuildIndexResponse, IndexBuildProgressPayload, VisibleItem } from '@shared/worker';
+import { createObservableModels, type ObservableModel } from '../models/ObservableModel';
 import {
   DEFAULT_CLUSTER_DISPLAY_SETTINGS,
   INITIAL_VIEW,
@@ -52,17 +53,18 @@ function toViewZoomForExpansion(clusterZoom: number, settings: ClusterDisplaySet
 
 export class ClusterStore {
   visibleItems: VisibleItem[] = [];
+  visibleObservables: ObservableModel[] = [];
   indexBuildDurationMs = 0;
   lastClusterQueryDurationMs = 0;
   visibleClusters = 0;
   visibleLeafPoints = 0;
   visibleStackedClusters = 0;
   visibleMaxStackSize = 1;
-  renderedLabels = 0;
   currentZoom = INITIAL_VIEW.zoom;
   isIndexReady = false;
   isApplyingSettings = false;
   indexRevision = 0;
+  selectedObservableId: string | null = null;
   settingsError: string | null = null;
   settings: ClusterDisplaySettings = DEFAULT_CLUSTER_DISPLAY_SETTINGS;
 
@@ -74,6 +76,14 @@ export class ClusterStore {
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
+  get selectedObservable(): ObservableModel | null {
+    return this.visibleObservables.find((observable) => observable.id === this.selectedObservableId) ?? null;
+  }
+
+  get renderedLabels(): number {
+    return this.visibleObservables.filter((observable) => observable.isLabelVisible).length;
+  }
+
   dispose(): void {
     this.workerClient.terminate();
   }
@@ -82,15 +92,16 @@ export class ClusterStore {
     this.buildSerial += 1;
     this.querySerial += 1;
     this.visibleItems = [];
+    this.visibleObservables = [];
     this.indexBuildDurationMs = 0;
     this.lastClusterQueryDurationMs = 0;
     this.visibleClusters = 0;
     this.visibleLeafPoints = 0;
     this.visibleStackedClusters = 0;
     this.visibleMaxStackSize = 1;
-    this.renderedLabels = 0;
     this.isIndexReady = false;
     this.isApplyingSettings = false;
+    this.selectedObservableId = null;
     this.settingsError = null;
   }
 
@@ -181,6 +192,7 @@ export class ClusterStore {
 
     const visibleClusters = result.items.filter((item) => item.kind === 'cluster').length;
     const visibleLeafPoints = result.items.length - visibleClusters;
+    const visibleObservables = createObservableModels(result.items);
     const visibleStackedClusters = result.items.filter(
       (item): item is Extract<VisibleItem, { kind: 'cluster' }> => item.kind === 'cluster' && item.hasStackedPoints,
     ).length;
@@ -191,14 +203,21 @@ export class ClusterStore {
 
       return Math.max(maxStackSize, item.stackSize);
     }, 1);
+    const nextSelectedObservableId =
+      this.selectedObservableId && visibleObservables.some((observable) => observable.id === this.selectedObservableId)
+        ? this.selectedObservableId
+        : null;
 
     runInAction(() => {
       this.visibleItems = result.items;
+      this.visibleObservables = visibleObservables;
       this.lastClusterQueryDurationMs = result.durationMs;
       this.visibleClusters = visibleClusters;
       this.visibleLeafPoints = visibleLeafPoints;
       this.visibleStackedClusters = visibleStackedClusters;
       this.visibleMaxStackSize = visibleMaxStackSize;
+      this.selectedObservableId = nextSelectedObservableId;
+      this.applyObservableLabelStyles();
     });
   }
 
@@ -207,11 +226,50 @@ export class ClusterStore {
     return toViewZoomForExpansion(result.zoom, this.settings);
   }
 
-  setRenderedLabels(count: number): void {
-    this.renderedLabels = count;
+  selectObservable(id: string): void {
+    if (!this.visibleObservables.some((observable) => observable.id === id)) {
+      return;
+    }
+
+    if (this.selectedObservableId === id) {
+      return;
+    }
+
+    this.selectedObservableId = id;
+    this.applyObservableLabelStyles();
+  }
+
+  clearObservableSelection(): void {
+    if (this.selectedObservableId === null) {
+      return;
+    }
+
+    this.selectedObservableId = null;
+    this.applyObservableLabelStyles();
   }
 
   setCurrentZoom(zoom: number): void {
     this.currentZoom = zoom;
+  }
+
+  private applyObservableLabelStyles(): void {
+    const selectedObservable = this.selectedObservable;
+
+    if (!selectedObservable) {
+      for (const observable of this.visibleObservables) {
+        observable.useDefaultLabelStyle();
+      }
+
+      return;
+    }
+
+    for (const observable of this.visibleObservables) {
+      if (observable.id === selectedObservable.id) {
+        observable.useSelectedLabelStyle();
+        continue;
+      }
+
+      observable.useMutedLabelStyle();
+    }
   }
 }

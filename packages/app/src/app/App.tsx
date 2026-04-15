@@ -4,6 +4,7 @@ import { ConnectionPanel } from '../components/ConnectionPanel';
 import { DisplayPanel } from '../components/DisplayPanel';
 import { MapView } from '../components/MapView';
 import { MetricsPanel } from '../components/MetricsPanel';
+import { SelectedObservablePanel } from '../components/SelectedObservablePanel';
 import { useRootStore } from '../stores/RootStore';
 
 export const App = observer(function App() {
@@ -59,6 +60,13 @@ export const App = observer(function App() {
           </div>
 
           <div className="control-panel__scroll">
+            <details className="panel-section" open>
+              <summary>Выбранный Observable</summary>
+              <div className="panel-section__body">
+                <SelectedObservablePanel />
+              </div>
+            </details>
+
             <details className="panel-section" open>
               <summary>Параметры сервера и подключения</summary>
               <div className="panel-section__body">
