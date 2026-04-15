@@ -4,6 +4,7 @@ import type Point from 'ol/geom/Point.js';
 import WebGLPointsLayer from 'ol/layer/WebGLPoints.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import type VectorSource from 'ol/source/Vector.js';
+import CircleStyle from 'ol/style/Circle.js';
 import Fill from 'ol/style/Fill.js';
 import Icon from 'ol/style/Icon.js';
 import Stroke from 'ol/style/Stroke.js';
@@ -29,14 +30,16 @@ const CLUSTER_STYLE = {
     10000,
     38,
   ],
-  'circle-fill-color': '#2563eb',
+  'circle-fill-color': ['case', ['>', ['get', 'stackedPointCount'], 0], '#f59e0b', '#2563eb'],
   'circle-opacity': 0.88,
-  'circle-stroke-color': '#ffffff',
-  'circle-stroke-width': 2,
+  'circle-stroke-color': ['case', ['>', ['get', 'stackedPointCount'], 0], '#7c2d12', '#ffffff'],
+  'circle-stroke-width': ['case', ['>', ['get', 'stackedPointCount'], 0], 3, 2],
 };
 
 const labelStyleCache = new Map<string, Style>();
+const clusterCountStyleCache = new Map<string, Style>();
 const pointIconStyleCache = new Map<PointCategory, Style>();
+const stackedPointStyleCache = new Map<string, Style[]>();
 
 function getPointIconStyle(category: PointCategory): Style {
   const cached = pointIconStyleCache.get(category);
@@ -60,11 +63,87 @@ function getPointIconStyle(category: PointCategory): Style {
   return style;
 }
 
+function getStackedPointStyles(category: PointCategory, stackSize: number): Style[] {
+  const cacheKey = `${category}:${stackSize}`;
+  const cached = stackedPointStyleCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const styles = [
+    new Style({
+      image: new CircleStyle({
+        radius: 12,
+        fill: new Fill({ color: 'rgba(245, 158, 11, 0.18)' }),
+        stroke: new Stroke({ color: '#f59e0b', width: 2 }),
+      }),
+    }),
+    getPointIconStyle(category),
+    new Style({
+      text: new Text({
+        text: `x${stackSize}`,
+        font: '600 10px sans-serif',
+        textAlign: 'center',
+        textBaseline: 'middle',
+        padding: [1, 4, 1, 4],
+        fill: new Fill({ color: '#fff7ed' }),
+        backgroundFill: new Fill({ color: '#9a3412' }),
+        backgroundStroke: new Stroke({ color: '#ffffff', width: 1 }),
+        offsetX: 18,
+        offsetY: -12,
+      }),
+    }),
+  ];
+
+  stackedPointStyleCache.set(cacheKey, styles);
+  return styles;
+}
+
 export function createClusterLayer(source: VectorSource<Feature<Point>>) {
   return new WebGLPointsLayer<VectorSource<FeatureLike>>({
     source: source as unknown as VectorSource<FeatureLike>,
     style: CLUSTER_STYLE,
     zIndex: 20,
+  });
+}
+
+export function createClusterCountLayer(source: VectorSource<Feature<Point>>) {
+  return new VectorLayer({
+    source,
+    declutter: false,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    zIndex: 22,
+    style(feature) {
+      const pointCount = feature.get('pointCount') as number | undefined;
+
+      if (!pointCount) {
+        return undefined;
+      }
+
+      const labelText = String(pointCount);
+      const cached = clusterCountStyleCache.get(labelText);
+
+      if (cached) {
+        return cached;
+      }
+
+      const style = new Style({
+        text: new Text({
+          text: labelText,
+          font: '700 12px sans-serif',
+          textAlign: 'center',
+          textBaseline: 'middle',
+          fill: new Fill({ color: '#ffffff' }),
+          stroke: new Stroke({ color: 'rgba(15, 23, 42, 0.55)', width: 3 }),
+          overflow: true,
+        }),
+      });
+
+      clusterCountStyleCache.set(labelText, style);
+      return style;
+    },
   });
 }
 
@@ -76,9 +155,14 @@ export function createPointIconLayer(source: VectorSource<Feature<Point>>) {
     zIndex: 24,
     style(feature) {
       const category = feature.get('category') as PointCategory | undefined;
+      const stackSize = feature.get('stackSize') as number | undefined;
 
       if (!category) {
         return undefined;
+      }
+
+      if ((stackSize ?? 1) > 1) {
+        return getStackedPointStyles(category, stackSize ?? 1);
       }
 
       return getPointIconStyle(category);

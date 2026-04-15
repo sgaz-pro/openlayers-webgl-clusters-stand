@@ -13,6 +13,9 @@ export function createVisibleFeature(item: VisibleItem): Feature<Point> {
     feature.setProperties({
       clusterId: item.clusterId,
       pointCount: item.pointCount,
+      hasStackedPoints: item.hasStackedPoints,
+      stackedPointCount: item.stackedPointCount,
+      maxStackSize: item.maxStackSize,
     });
   } else {
     feature.setId(item.id);
@@ -20,6 +23,7 @@ export function createVisibleFeature(item: VisibleItem): Feature<Point> {
       name: item.name,
       category: item.category,
       weight: item.weight,
+      stackSize: item.stackSize,
     });
   }
 
@@ -27,12 +31,24 @@ export function createVisibleFeature(item: VisibleItem): Feature<Point> {
 }
 
 export function createLabelFeatures(items: readonly VisibleItem[]): Feature<Point>[] {
+  const seenCoordinates = new Set<string>();
+
   return items
     .filter((item): item is Extract<VisibleItem, { kind: 'point' }> => item.kind === 'point')
+    .filter((item) => {
+      const coordinateKey = `${item.lon},${item.lat}`;
+
+      if (item.stackSize <= 1 || !seenCoordinates.has(coordinateKey)) {
+        seenCoordinates.add(coordinateKey);
+        return true;
+      }
+
+      return false;
+    })
     .map((item) => {
       const feature = new Feature({
         geometry: new Point(fromLonLat([item.lon, item.lat])),
-        labelText: item.name,
+        labelText: item.stackSize > 1 ? `${item.name} x${item.stackSize}` : item.name,
       });
 
       feature.setId(`label-${item.id}`);
