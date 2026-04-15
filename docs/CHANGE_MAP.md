@@ -12,10 +12,11 @@ Top page copy/layout:
 
 - `packages/app/src/app/App.tsx`
 - `packages/app/src/app/App.css`
+- `packages/app/src/components/SelectedObservablePanel.tsx`
 
 Debug stats panel:
 
-- `packages/app/src/components/DebugPanel.tsx`
+- `packages/app/src/components/MetricsPanel.tsx`
 
 ## Loading and progress
 
@@ -43,6 +44,8 @@ Shared request defaults:
 Map lifecycle and interactions:
 
 - `packages/app/src/components/MapView.tsx`
+- `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/models/ObservableModel.ts`
 
 Worker RPC:
 
@@ -61,6 +64,11 @@ Feature creation:
 Layer styling:
 
 - `packages/app/src/map/layers.ts`
+
+Selected observable panel:
+
+- `packages/app/src/components/SelectedObservablePanel.tsx`
+- `packages/app/src/stores/ClusterStore.ts`
 
 ## Server and data
 

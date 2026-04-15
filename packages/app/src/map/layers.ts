@@ -4,7 +4,6 @@ import type Point from 'ol/geom/Point.js';
 import WebGLPointsLayer from 'ol/layer/WebGLPoints.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import type VectorSource from 'ol/source/Vector.js';
-import CircleStyle from 'ol/style/Circle.js';
 import Fill from 'ol/style/Fill.js';
 import Icon from 'ol/style/Icon.js';
 import Stroke from 'ol/style/Stroke.js';
@@ -12,6 +11,7 @@ import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
 import type { PointCategory } from '@shared/points';
 import { LABEL_RENDER_BUFFER_PX } from '../constants';
+import type { ObservableLabelStyle, ObservableModel } from '../models/ObservableModel';
 import { POINT_ICON_COLORS, POINT_ICON_URLS } from './icons';
 
 const CLUSTER_STYLE = {
@@ -36,10 +36,39 @@ const CLUSTER_STYLE = {
   'circle-stroke-width': ['case', ['>', ['get', 'stackedPointCount'], 0], 3, 2],
 };
 
-const labelStyleCache = new Map<string, Style>();
 const clusterCountStyleCache = new Map<string, Style>();
 const pointIconStyleCache = new Map<PointCategory, Style>();
-const stackedPointStyleCache = new Map<string, Style[]>();
+const observableLabelStyleCache = new Map<string, Style>();
+const observableStyleCache = new Map<string, Style[]>();
+
+const LABEL_STYLES: Record<
+  ObservableLabelStyle,
+  {
+    font: string;
+    fillColor: string;
+    backgroundFillColor: string;
+    backgroundStrokeColor: string;
+  }
+> = {
+  default: {
+    font: '500 11px sans-serif',
+    fillColor: 'rgba(15, 23, 42, 1)',
+    backgroundFillColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundStrokeColor: 'rgba(15, 23, 42, 0.16)',
+  },
+  muted: {
+    font: '500 11px sans-serif',
+    fillColor: 'rgba(15, 23, 42, 0.48)',
+    backgroundFillColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundStrokeColor: 'rgba(15, 23, 42, 0.08)',
+  },
+  selected: {
+    font: '700 11px sans-serif',
+    fillColor: 'rgba(15, 23, 42, 1)',
+    backgroundFillColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundStrokeColor: 'rgba(15, 23, 42, 0.28)',
+  },
+};
 
 function getPointIconStyle(category: PointCategory): Style {
   const cached = pointIconStyleCache.get(category);
@@ -63,40 +92,45 @@ function getPointIconStyle(category: PointCategory): Style {
   return style;
 }
 
-function getStackedPointStyles(category: PointCategory, stackSize: number): Style[] {
-  const cacheKey = `${category}:${stackSize}`;
-  const cached = stackedPointStyleCache.get(cacheKey);
+function getLabelStyle(labelText: string, labelStyle: ObservableLabelStyle): Style {
+  const cacheKey = `${labelStyle}:${labelText}`;
+  const cached = observableLabelStyleCache.get(cacheKey);
 
   if (cached) {
     return cached;
   }
 
-  const styles = [
-    new Style({
-      image: new CircleStyle({
-        radius: 12,
-        fill: new Fill({ color: 'rgba(245, 158, 11, 0.18)' }),
-        stroke: new Stroke({ color: '#f59e0b', width: 2 }),
-      }),
+  const labelPalette = LABEL_STYLES[labelStyle];
+  const style = new Style({
+    text: new Text({
+      text: labelText,
+      font: labelPalette.font,
+      textAlign: 'left',
+      textBaseline: 'middle',
+      padding: [2, 4, 2, 4],
+      overflow: true,
+      fill: new Fill({ color: labelPalette.fillColor }),
+      backgroundFill: new Fill({ color: labelPalette.backgroundFillColor }),
+      backgroundStroke: new Stroke({ color: labelPalette.backgroundStrokeColor, width: 1 }),
+      offsetX: 15,
     }),
-    getPointIconStyle(category),
-    new Style({
-      text: new Text({
-        text: `x${stackSize}`,
-        font: '600 10px sans-serif',
-        textAlign: 'center',
-        textBaseline: 'middle',
-        padding: [1, 4, 1, 4],
-        fill: new Fill({ color: '#fff7ed' }),
-        backgroundFill: new Fill({ color: '#9a3412' }),
-        backgroundStroke: new Stroke({ color: '#ffffff', width: 1 }),
-        offsetX: 18,
-        offsetY: -12,
-      }),
-    }),
-  ];
+  });
 
-  stackedPointStyleCache.set(cacheKey, styles);
+  observableLabelStyleCache.set(cacheKey, style);
+  return style;
+}
+
+function getObservableStyles(observable: ObservableModel): Style[] {
+  const cacheKey = `${observable.category}:${observable.labelStyle}:${observable.labelText}`;
+  const cached = observableStyleCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const styles = [getPointIconStyle(observable.category), getLabelStyle(observable.labelText, observable.labelStyle)];
+
+  observableStyleCache.set(cacheKey, styles);
   return styles;
 }
 
@@ -147,67 +181,22 @@ export function createClusterCountLayer(source: VectorSource<Feature<Point>>) {
   });
 }
 
-export function createPointIconLayer(source: VectorSource<Feature<Point>>) {
-  return new VectorLayer({
-    source,
-    updateWhileAnimating: false,
-    updateWhileInteracting: false,
-    zIndex: 24,
-    style(feature) {
-      const category = feature.get('category') as PointCategory | undefined;
-      const stackSize = feature.get('stackSize') as number | undefined;
-
-      if (!category) {
-        return undefined;
-      }
-
-      if ((stackSize ?? 1) > 1) {
-        return getStackedPointStyles(category, stackSize ?? 1);
-      }
-
-      return getPointIconStyle(category);
-    },
-  });
-}
-
-export function createLabelLayer(source: VectorSource<Feature<Point>>) {
+export function createObservableLayer(source: VectorSource<Feature<Point>>) {
   return new VectorLayer({
     source,
     declutter: false,
     renderBuffer: LABEL_RENDER_BUFFER_PX,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
-    zIndex: 26,
+    zIndex: 24,
     style(feature) {
-      const labelText = feature.get('labelText') as string | undefined;
+      const observable = feature.get('observable') as ObservableModel | undefined;
 
-      if (!labelText) {
+      if (!observable) {
         return undefined;
       }
 
-      const cached = labelStyleCache.get(labelText);
-
-      if (cached) {
-        return cached;
-      }
-
-      const style = new Style({
-        text: new Text({
-          text: labelText,
-          font: '500 11px sans-serif',
-          textAlign: 'left',
-          textBaseline: 'middle',
-          padding: [2, 4, 2, 4],
-          overflow: true,
-          fill: new Fill({ color: '#0f172a' }),
-          backgroundFill: new Fill({ color: 'rgba(255, 255, 255, 0.8)' }),
-          backgroundStroke: new Stroke({ color: 'rgba(15, 23, 42, 0.16)', width: 1 }),
-          offsetX: 15,
-        }),
-      });
-
-      labelStyleCache.set(labelText, style);
-      return style;
+      return getObservableStyles(observable);
     },
   });
 }
