@@ -14,10 +14,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@faker-js/faker": "9.8.0"
+    "@faker-js/faker": "10.4.0"
   },
   "devDependencies": {
-    "@types/node": "22.10.5",
-    "tsx": "4.19.2"
+    "@types/node": "25.5.2",
+    "tsx": "4.21.0"
   }
 }
