@@ -12,7 +12,7 @@
 - `src/components/MetricsPanel.tsx`: runtime metrics section
 - `src/components/SelectedObservablePanel.tsx`: selected marker info and clear-selection action
 - `src/components/MapView.tsx`: map creation, `moveend` refresh, cluster click behavior and marker selection
-- `src/models/ObservableModel.ts`: leaf marker model that combines icon data, label text and selection state
+- `src/models/ObservableModel.ts`: leaf marker model that owns its OpenLayers feature, label text and selection state
 - `src/stores/RootStore.ts`: store composition and React context
 - `src/stores/DatasetStore.ts`: dataset loading state machine
 - `src/stores/HealthStore.ts`: health check status for `/api/health`
@@ -23,7 +23,7 @@
 - `src/workers/supercluster.worker.ts`: `supercluster` index build and query logic
 - `src/map/layers.ts`: cluster layer and combined observable vector layer
 - `src/map/icons.ts`: SVG data-url catalog for point categories
-- `src/map/featureFactories.ts`: feature conversion for clusters and observables
+- `src/map/featureFactories.ts`: cluster feature conversion and thin observable feature adapter
 
 ## Current UI flow
 
@@ -72,6 +72,7 @@
 - compresses cluster query zoom near the maximum view zoom so dense areas reveal mostly on the last two zoom levels
 - derives `ObservableModel[]` for visible leaf points
 - keeps the currently selected observable in sync with visible results
+- applies selection style updates on existing observable features without rebuilding the observable source
 - exposes visible item counts and timings
 - resolves `getClusterExpansionZoom()`
 
@@ -80,9 +81,10 @@
 - base map: OSM tile layer
 - projection: EPSG:3857 on the map, lon/lat in data contracts
 - clusters: WebGL layer
-- leaf points: one `VectorLayer` per visible observable, combining category-specific SVG icon and text label in the same feature style
+- leaf points: one `VectorLayer` per visible observable, where each `ObservableModel` owns the `Feature` used by the layer and combines category-specific SVG icon with text label in the same style function
 - selection: selected label becomes bold, other visible labels become semi-transparent, empty-map click restores default label styles
 - same-coordinate leaves currently have no local expansion or cycle-selection logic; they simply overlap, and selection uses the first hit feature returned by OpenLayers
+- selection-style updates call `feature.changed()` on existing leaf features, so the observable source only rebuilds when the visible set itself changes
 - at maximum zoom, the cluster query bbox is padded so near-edge labels stay visible a little longer
 - cluster tuning controls expose `radius`, `minZoom`, `maxZoom`, `minPoints`, `extent`, `nodeSize` and `denseRevealViewZoom`
 

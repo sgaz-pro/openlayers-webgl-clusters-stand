@@ -38,7 +38,7 @@ Core idea:
 - `packages/app/src/components/SelectedObservablePanel.tsx`: selected marker details and clear-selection action
 - `packages/app/src/components/MapView.tsx`: OpenLayers map lifecycle, cluster zoom and observable selection
 - `packages/app/src/map/icons.ts`: SVG icon catalog for point categories
-- `packages/app/src/models/ObservableModel.ts`: leaf marker model with icon/label state for a single visible point
+- `packages/app/src/models/ObservableModel.ts`: leaf marker model that owns its OpenLayers feature and label style for a single visible point
 - `packages/app/src/stores/DatasetStore.ts`: load phases and progress
 - `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
 - `packages/app/src/stores/ClusterStore.ts`: worker RPC, visible cluster state and selected observable state
@@ -60,10 +60,11 @@ Core idea:
 - Supported dataset modes are `mixed`, `industrial` and `coincident`.
 - The client shell currently uses native browser controls and lightweight custom CSS.
 - Clusters are rendered as circles, with orange styling when they contain stacked same-coordinate leaves.
-- Visible leaf points are represented by `ObservableModel`: one feature now carries both the SVG icon and the text label.
+- Visible leaf points are represented by `ObservableModel`: each model owns one OpenLayers `Feature`, and that feature carries both the SVG icon and the text label.
 - Same-coordinate leaf points are rendered without local expansion logic for now: icons and labels simply overlap on the same pixel.
 - Clicking a leaf marker makes its label bold and mutes labels of other visible markers; clicking empty map space resets label styles to default.
 - If several observables overlap at the clicked pixel, the app currently selects the first hit feature returned by OpenLayers.
+- Selection style changes now redraw existing observable features via `feature.changed()` instead of clearing and rebuilding the observable source.
 - At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
 - Cluster query zoom is intentionally compressed near the top of the zoom range so dense areas only fully раскрываются on the last two view zoom levels.
 - The display section now exposes editable `supercluster` parameters plus `denseRevealViewZoom`, and applying them rebuilds the worker index without re-downloading the dataset.

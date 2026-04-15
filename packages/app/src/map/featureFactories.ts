@@ -22,14 +22,5 @@ export function createClusterFeature(item: Extract<VisibleItem, { kind: 'cluster
 }
 
 export function createObservableFeature(observable: ObservableModel): Feature<Point> {
-  const feature = new Feature({
-    geometry: new Point(fromLonLat([observable.lon, observable.lat])),
-    kind: 'point',
-    observableId: observable.id,
-    observable,
-  });
-
-  feature.setId(observable.id);
-  feature.set('weight', observable.weight);
-  return feature;
+  return observable.feature;
 }

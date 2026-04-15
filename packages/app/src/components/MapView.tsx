@@ -47,7 +47,6 @@ export const MapView = observer(function MapView() {
   const visibleItems = clusterStore.visibleItems;
   const visibleObservables = clusterStore.visibleObservables;
   const indexRevision = clusterStore.indexRevision;
-  const observableSelectionRevision = clusterStore.observableSelectionRevision;
   const visibleStackedClusters = clusterStore.visibleStackedClusters;
   const visibleMaxStackSize = clusterStore.visibleMaxStackSize;
   const phase = datasetStore.phase;
@@ -193,7 +192,7 @@ export const MapView = observer(function MapView() {
     if (visibleObservables.length > 0) {
       observableSource.addFeatures(visibleObservables.map(createObservableFeature));
     }
-  }, [visibleObservables, observableSelectionRevision]);
+  }, [visibleObservables]);
 
   useEffect(() => {
     if (phase !== 'ready') {

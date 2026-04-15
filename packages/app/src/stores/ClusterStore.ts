@@ -65,7 +65,6 @@ export class ClusterStore {
   isApplyingSettings = false;
   indexRevision = 0;
   selectedObservableId: string | null = null;
-  observableSelectionRevision = 0;
   settingsError: string | null = null;
   settings: ClusterDisplaySettings = DEFAULT_CLUSTER_DISPLAY_SETTINGS;
 
@@ -103,7 +102,6 @@ export class ClusterStore {
     this.isIndexReady = false;
     this.isApplyingSettings = false;
     this.selectedObservableId = null;
-    this.observableSelectionRevision += 1;
     this.settingsError = null;
   }
 
@@ -220,7 +218,6 @@ export class ClusterStore {
       this.visibleMaxStackSize = visibleMaxStackSize;
       this.selectedObservableId = nextSelectedObservableId;
       this.applyObservableLabelStyles();
-      this.observableSelectionRevision += 1;
     });
   }
 
@@ -240,7 +237,6 @@ export class ClusterStore {
 
     this.selectedObservableId = id;
     this.applyObservableLabelStyles();
-    this.observableSelectionRevision += 1;
   }
 
   clearObservableSelection(): void {
@@ -250,7 +246,6 @@ export class ClusterStore {
 
     this.selectedObservableId = null;
     this.applyObservableLabelStyles();
-    this.observableSelectionRevision += 1;
   }
 
   setCurrentZoom(zoom: number): void {

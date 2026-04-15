@@ -60,6 +60,7 @@ Cluster query state:
 Feature creation:
 
 - `packages/app/src/map/featureFactories.ts`
+- `packages/app/src/models/ObservableModel.ts`
 
 Layer styling:
 
