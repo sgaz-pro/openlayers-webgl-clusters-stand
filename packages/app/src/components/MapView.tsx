@@ -43,7 +43,7 @@ function isClusterItem(item: VisibleItem): item is Extract<VisibleItem, { kind: 
 }
 
 export const MapView = observer(function MapView() {
-  const { clusterStore, datasetStore } = useRootStore();
+  const { clusterStore, datasetStore, observableStreamStore } = useRootStore();
   const visibleItems = clusterStore.visibleItems;
   const visibleObservables = clusterStore.visibleObservables;
   const indexRevision = clusterStore.indexRevision;
@@ -234,8 +234,13 @@ export const MapView = observer(function MapView() {
             В текущем окне уже видны совпадающие координаты, max stack x{visibleMaxStackSize}
           </div>
         ) : null}
+        {observableStreamStore.isStreaming ? (
+          <div className="overlay-chip">SSE: {observableStreamStore.status}</div>
+        ) : null}
         {phase !== 'ready' ? <div className="overlay-status">phase: {phase}</div> : null}
-        {phase === 'idle' ? <div className="overlay-status">Нажмите «Подключиться», чтобы запустить загрузку</div> : null}
+        {phase === 'idle' ? (
+          <div className="overlay-status">Нажмите «Инициализировать Observable», чтобы загрузить датасет</div>
+        ) : null}
         {errorMessage ? <div className="overlay-error">{errorMessage}</div> : null}
       </div>
     </section>

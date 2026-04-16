@@ -22,7 +22,7 @@ export type IndustrialPointCategory =
 
 export type PointCategory = GeneralPointCategory | IndustrialPointCategory;
 
-export interface PointRecord {
+export interface ObservableData {
   id: string;
   lon: number;
   lat: number;
@@ -31,11 +31,31 @@ export interface PointRecord {
   weight: number;
 }
 
+export type PointRecord = ObservableData;
+
+export interface ObservableIdentity {
+  id: string;
+}
+
+export interface ObservableMutationMessage {
+  insert: ObservableData[];
+  update: ObservableData[];
+  delete: ObservableIdentity[];
+}
+
 export interface DatasetQuery {
   count: number;
   seed: number;
   mode: DatasetMode;
 }
+
+export interface ObservableStreamSettings {
+  sampleMaxCount: number;
+  sampleLongTimeMs: number;
+  sampleBetweenDelayMs: number;
+}
+
+export interface ObservableStreamQuery extends DatasetQuery, ObservableStreamSettings {}
 
 export interface PointsApiMeta {
   count: number;
@@ -63,3 +83,5 @@ export interface HealthApiResponse {
 }
 
 export type LonLatBbox = [west: number, south: number, east: number, north: number];
+
+export const OBSERVABLE_SSE_EVENT = 'observable';

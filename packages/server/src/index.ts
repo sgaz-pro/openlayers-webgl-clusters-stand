@@ -1,15 +1,20 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { DatasetMode, DatasetQuery, HealthApiResponse } from '../../../shared/points.js';
+import type { DatasetMode, DatasetQuery, HealthApiResponse, ObservableStreamQuery } from '../../../shared/points.js';
 import {
+  DEFAULT_OBSERVABLE_STREAM_SETTINGS,
   DEFAULT_PORT,
   DEFAULT_QUERY,
   MAX_COUNT,
+  MAX_SAMPLE_BETWEEN_DELAY_MS,
+  MAX_SAMPLE_LONG_TIME_MS,
+  MAX_SAMPLE_MAX_COUNT,
   META_RESPONSE,
   STREAM_CHUNK_SIZE,
   SUPPORTED_MODES,
 } from './config.js';
 import { generatePointsDataset } from './generators/syntheticDataset.js';
 import { sendJson, sendJsonWithCompression } from './http/respond.js';
+import { openObservableStream } from './sse/observableStream.js';
 
 function parseInteger(value: string | null, fallback: number): number {
   if (!value) {
@@ -43,6 +48,38 @@ function parseDatasetQuery(url: URL): DatasetQuery {
   };
 }
 
+function parseObservableStreamQuery(url: URL): ObservableStreamQuery {
+  const datasetQuery = parseDatasetQuery(url);
+
+  return {
+    ...datasetQuery,
+    sampleMaxCount: Math.max(
+      1,
+      Math.min(
+        MAX_SAMPLE_MAX_COUNT,
+        parseInteger(url.searchParams.get('sampleMaxCount'), DEFAULT_OBSERVABLE_STREAM_SETTINGS.sampleMaxCount),
+      ),
+    ),
+    sampleLongTimeMs: Math.max(
+      100,
+      Math.min(
+        MAX_SAMPLE_LONG_TIME_MS,
+        parseInteger(url.searchParams.get('sampleLongTimeMs'), DEFAULT_OBSERVABLE_STREAM_SETTINGS.sampleLongTimeMs),
+      ),
+    ),
+    sampleBetweenDelayMs: Math.max(
+      0,
+      Math.min(
+        MAX_SAMPLE_BETWEEN_DELAY_MS,
+        parseInteger(
+          url.searchParams.get('sampleBetweenDelayMs'),
+          DEFAULT_OBSERVABLE_STREAM_SETTINGS.sampleBetweenDelayMs,
+        ),
+      ),
+    ),
+  };
+}
+
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `${host}:${port}`}`);
 
@@ -68,6 +105,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       acceptEncoding: request.headers['accept-encoding'],
       chunkSize: STREAM_CHUNK_SIZE,
     });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/observable/stream') {
+    const query = parseObservableStreamQuery(url);
+    const cleanup = openObservableStream(response, query);
+    request.on('close', cleanup);
+    response.on('close', cleanup);
     return;
   }
 

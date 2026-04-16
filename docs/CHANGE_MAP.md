@@ -18,6 +18,12 @@ Debug stats panel:
 
 - `packages/app/src/components/MetricsPanel.tsx`
 
+SSE controls and live stream UX:
+
+- `packages/app/src/components/ConnectionPanel.tsx`
+- `packages/app/src/stores/ObservableStreamStore.ts`
+- `packages/app/src/stores/ObservableAnimationStore.ts`
+
 ## Loading and progress
 
 Phase state machine:
@@ -34,6 +40,14 @@ Worker-side parse/index handoff:
 - `packages/app/src/workers/supercluster.worker.ts`
 - `shared/worker.ts`
 
+Live mutation batching and batched index flush:
+
+- `packages/app/src/stores/ObservableStreamStore.ts`
+- `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/workers/workerClient.ts`
+- `packages/app/src/workers/supercluster.worker.ts`
+- `shared/worker.ts`
+
 Shared request defaults:
 
 - `packages/app/src/constants.ts`
@@ -44,6 +58,12 @@ Shared request defaults:
 Map lifecycle and interactions:
 
 - `packages/app/src/components/MapView.tsx`
+- `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/models/ObservableModel.ts`
+
+Visible leaf animation and latest-wins retargeting:
+
+- `packages/app/src/stores/ObservableAnimationStore.ts`
 - `packages/app/src/stores/ClusterStore.ts`
 - `packages/app/src/models/ObservableModel.ts`
 
@@ -77,6 +97,12 @@ Route handling:
 
 - `packages/server/src/index.ts`
 
+SSE stream generation:
+
+- `packages/server/src/index.ts`
+- `packages/server/src/config.ts`
+- `packages/server/src/sse/observableStream.ts`
+
 Synthetic data realism:
 
 - `packages/server/src/generators/syntheticDataset.ts`
@@ -85,6 +111,10 @@ Synthetic data realism:
 Shared point contracts:
 
 - `shared/points.ts`
+
+Shared worker/live contracts:
+
+- `shared/worker.ts`
 
 ## If you want to reduce future context cost
 

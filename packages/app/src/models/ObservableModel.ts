@@ -2,7 +2,7 @@ import Feature from 'ol/Feature.js';
 import Point from 'ol/geom/Point.js';
 import { fromLonLat } from 'ol/proj.js';
 import { makeAutoObservable } from 'mobx';
-import type { PointCategory } from '@shared/points';
+import type { ObservableData, PointCategory } from '@shared/points';
 import type { VisibleItem } from '@shared/worker';
 
 export type VisiblePointItem = Extract<VisibleItem, { kind: 'point' }>;
@@ -14,10 +14,10 @@ function isVisiblePointItem(item: VisibleItem): item is VisiblePointItem {
 
 export class ObservableModel {
   readonly id: string;
-  readonly name: string;
-  readonly category: PointCategory;
-  readonly weight: number;
-  readonly stackSize: number;
+  name: string;
+  category: PointCategory;
+  weight: number;
+  stackSize: number;
   readonly feature: Feature<Point>;
   lon: number;
   lat: number;
@@ -65,6 +65,49 @@ export class ObservableModel {
     this.updateLabelStyle('selected');
   }
 
+  syncFromVisibleItem(
+    item: VisiblePointItem,
+    options: {
+      preserveCoordinate?: boolean;
+    } = {},
+  ): void {
+    this.syncFromObservableData(item, options);
+    this.updateStackSize(item.stackSize);
+  }
+
+  syncFromObservableData(
+    observable: ObservableData,
+    options: {
+      preserveCoordinate?: boolean;
+    } = {},
+  ): void {
+    let shouldRefreshFeature = false;
+
+    if (this.name !== observable.name) {
+      this.name = observable.name;
+      shouldRefreshFeature = true;
+    }
+
+    if (this.category !== observable.category) {
+      this.category = observable.category;
+      shouldRefreshFeature = true;
+    }
+
+    if (this.weight !== observable.weight) {
+      this.weight = observable.weight;
+      this.feature.set('weight', observable.weight);
+      shouldRefreshFeature = true;
+    }
+
+    if (!options.preserveCoordinate) {
+      this.moveToLonLat([observable.lon, observable.lat]);
+    }
+
+    if (shouldRefreshFeature) {
+      this.feature.changed();
+    }
+  }
+
   moveToLonLat([lon, lat]: [number, number]): void {
     if (this.lon === lon && this.lat === lat) {
       return;
@@ -82,6 +125,15 @@ export class ObservableModel {
     }
 
     this.labelStyle = nextStyle;
+    this.feature.changed();
+  }
+
+  private updateStackSize(nextStackSize: number): void {
+    if (this.stackSize === nextStackSize) {
+      return;
+    }
+
+    this.stackSize = nextStackSize;
     this.feature.changed();
   }
 }

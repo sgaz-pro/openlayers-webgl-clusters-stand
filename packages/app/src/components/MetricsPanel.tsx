@@ -3,7 +3,7 @@ import { formatBytes, formatDuration, formatProgress } from '../app/formatters';
 import { useRootStore } from '../stores/RootStore';
 
 export const MetricsPanel = observer(function MetricsPanel() {
-  const { datasetStore, clusterStore } = useRootStore();
+  const { datasetStore, clusterStore, observableAnimationStore, observableStreamStore } = useRootStore();
 
   const metrics = [
     {
@@ -63,8 +63,36 @@ export const MetricsPanel = observer(function MetricsPanel() {
       value: clusterStore.renderedLabels.toLocaleString(),
     },
     {
+      label: 'Активных анимаций',
+      value: observableAnimationStore.activeAnimationCount.toLocaleString(),
+    },
+    {
       label: 'Текущий zoom',
       value: clusterStore.currentZoom.toFixed(2),
+    },
+    {
+      label: 'SSE статус',
+      value: observableStreamStore.status,
+    },
+    {
+      label: 'SSE событий',
+      value: observableStreamStore.receivedEventCount.toLocaleString(),
+    },
+    {
+      label: 'SSE мутаций',
+      value: observableStreamStore.receivedMutationCount.toLocaleString(),
+    },
+    {
+      label: 'Dirty id применено',
+      value: observableStreamStore.appliedDirtyIdCount.toLocaleString(),
+    },
+    {
+      label: 'Flush индекса',
+      value: observableStreamStore.flushCount.toLocaleString(),
+    },
+    {
+      label: 'Последний flush',
+      value: formatDuration(observableStreamStore.lastFlushDurationMs),
     },
     {
       label: 'Скачанные байты',
@@ -86,6 +114,7 @@ export const MetricsPanel = observer(function MetricsPanel() {
       </div>
 
       {datasetStore.errorMessage ? <div className="panel-error">{datasetStore.errorMessage}</div> : null}
+      {observableStreamStore.errorMessage ? <div className="panel-error">{observableStreamStore.errorMessage}</div> : null}
     </div>
   );
 });

@@ -1,7 +1,13 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { LonLatBbox } from '@shared/points';
-import type { BuildIndexResponse, IndexBuildProgressPayload, VisibleItem } from '@shared/worker';
-import { createObservableModels, type ObservableModel } from '../models/ObservableModel';
+import type { LonLatBbox, ObservableMutationMessage } from '@shared/points';
+import type {
+  ApplyObservableMutationsResponse,
+  BuildIndexResponse,
+  FlushIndexResponse,
+  IndexBuildProgressPayload,
+  VisibleItem,
+} from '@shared/worker';
+import { ObservableModel, type VisiblePointItem } from '../models/ObservableModel';
 import {
   DEFAULT_CLUSTER_DISPLAY_SETTINGS,
   INITIAL_VIEW,
@@ -51,6 +57,37 @@ function toViewZoomForExpansion(clusterZoom: number, settings: ClusterDisplaySet
   return INITIAL_VIEW.maxZoom;
 }
 
+function isVisiblePointItem(item: VisibleItem): item is VisiblePointItem {
+  return item.kind === 'point';
+}
+
+function computeVisibleStackMetrics(items: readonly VisibleItem[]): {
+  visibleClusters: number;
+  visibleLeafPoints: number;
+  visibleStackedClusters: number;
+  visibleMaxStackSize: number;
+} {
+  const visibleClusters = items.filter((item) => item.kind === 'cluster').length;
+  const visibleLeafPoints = items.length - visibleClusters;
+  const visibleStackedClusters = items.filter(
+    (item): item is Extract<VisibleItem, { kind: 'cluster' }> => item.kind === 'cluster' && item.hasStackedPoints,
+  ).length;
+  const visibleMaxStackSize = items.reduce((maxStackSize, item) => {
+    if (item.kind === 'cluster') {
+      return Math.max(maxStackSize, item.maxStackSize);
+    }
+
+    return Math.max(maxStackSize, item.stackSize);
+  }, 1);
+
+  return {
+    visibleClusters,
+    visibleLeafPoints,
+    visibleStackedClusters,
+    visibleMaxStackSize,
+  };
+}
+
 export class ClusterStore {
   visibleItems: VisibleItem[] = [];
   visibleObservables: ObservableModel[] = [];
@@ -68,12 +105,21 @@ export class ClusterStore {
   settingsError: string | null = null;
   settings: ClusterDisplaySettings = DEFAULT_CLUSTER_DISPLAY_SETTINGS;
 
+  private readonly rootStore: RootStore;
   private readonly workerClient = new SuperclusterWorkerClient();
   private querySerial = 0;
   private buildSerial = 0;
 
-  constructor(_rootStore: RootStore) {
-    makeAutoObservable(this, {}, { autoBind: true });
+  constructor(rootStore: RootStore) {
+    this.rootStore = rootStore;
+    makeAutoObservable(
+      this,
+      {
+        rootStore: false,
+        workerClient: false,
+      } as any,
+      { autoBind: true },
+    );
   }
 
   get selectedObservable(): ObservableModel | null {
@@ -103,6 +149,7 @@ export class ClusterStore {
     this.isApplyingSettings = false;
     this.selectedObservableId = null;
     this.settingsError = null;
+    this.rootStore.observableAnimationStore.clearAll({ snapToTarget: false });
   }
 
   async buildIndex(
@@ -176,6 +223,32 @@ export class ClusterStore {
     }
   }
 
+  async applyObservableStreamMessage(
+    message: ObservableMutationMessage,
+    streamSeq: number,
+    animationDurationMs: number,
+  ): Promise<ApplyObservableMutationsResponse['payload']> {
+    const result = await this.workerClient.applyObservableMutations(message);
+    this.applyLocalObservableMutations(message, streamSeq, animationDurationMs);
+    return result;
+  }
+
+  async flushLiveIndex(): Promise<FlushIndexResponse['payload']> {
+    const result = await this.workerClient.flushIndex(toClusterIndexOptions(this.settings));
+
+    if (!result.didRebuild) {
+      return result;
+    }
+
+    runInAction(() => {
+      this.indexBuildDurationMs = result.indexBuildDurationMs;
+      this.querySerial += 1;
+      this.indexRevision += 1;
+    });
+
+    return result;
+  }
+
   async queryClusters(bbox: LonLatBbox, zoom: number): Promise<void> {
     if (!this.isIndexReady) {
       return;
@@ -190,35 +263,45 @@ export class ClusterStore {
       return;
     }
 
-    const visibleClusters = result.items.filter((item) => item.kind === 'cluster').length;
-    const visibleLeafPoints = result.items.length - visibleClusters;
-    const visibleObservables = createObservableModels(result.items);
-    const visibleStackedClusters = result.items.filter(
-      (item): item is Extract<VisibleItem, { kind: 'cluster' }> => item.kind === 'cluster' && item.hasStackedPoints,
-    ).length;
-    const visibleMaxStackSize = result.items.reduce((maxStackSize, item) => {
-      if (item.kind === 'cluster') {
-        return Math.max(maxStackSize, item.maxStackSize);
+    const previousById = new Map(this.visibleObservables.map((observable) => [observable.id, observable] as const));
+    const visibleObservables: ObservableModel[] = [];
+
+    for (const item of result.items) {
+      if (!isVisiblePointItem(item)) {
+        continue;
       }
 
-      return Math.max(maxStackSize, item.stackSize);
-    }, 1);
+      const existing = previousById.get(item.id);
+      const preserveCoordinate = this.rootStore.observableAnimationStore.isAnimating(item.id);
+
+      if (existing) {
+        existing.syncFromVisibleItem(item, { preserveCoordinate });
+        visibleObservables.push(existing);
+        continue;
+      }
+
+      visibleObservables.push(new ObservableModel(item));
+    }
+
     const nextSelectedObservableId =
       this.selectedObservableId && visibleObservables.some((observable) => observable.id === this.selectedObservableId)
         ? this.selectedObservableId
         : null;
+    const stackMetrics = computeVisibleStackMetrics(result.items);
 
     runInAction(() => {
       this.visibleItems = result.items;
       this.visibleObservables = visibleObservables;
       this.lastClusterQueryDurationMs = result.durationMs;
-      this.visibleClusters = visibleClusters;
-      this.visibleLeafPoints = visibleLeafPoints;
-      this.visibleStackedClusters = visibleStackedClusters;
-      this.visibleMaxStackSize = visibleMaxStackSize;
+      this.visibleClusters = stackMetrics.visibleClusters;
+      this.visibleLeafPoints = stackMetrics.visibleLeafPoints;
+      this.visibleStackedClusters = stackMetrics.visibleStackedClusters;
+      this.visibleMaxStackSize = stackMetrics.visibleMaxStackSize;
       this.selectedObservableId = nextSelectedObservableId;
-      this.applyObservableLabelStyles();
     });
+
+    this.rootStore.observableAnimationStore.bindVisibleObservables(visibleObservables);
+    this.applyObservableLabelStyles();
   }
 
   async getExpansionZoom(clusterId: number): Promise<number> {
@@ -250,6 +333,91 @@ export class ClusterStore {
 
   setCurrentZoom(zoom: number): void {
     this.currentZoom = zoom;
+  }
+
+  private applyLocalObservableMutations(
+    message: ObservableMutationMessage,
+    streamSeq: number,
+    animationDurationMs: number,
+  ): void {
+    if (this.visibleItems.length === 0 && this.visibleObservables.length === 0) {
+      return;
+    }
+
+    const deletedIds = new Set(message.delete.map((entry) => entry.id));
+    const updatedById = new Map(message.update.map((entry) => [entry.id, entry] as const));
+    const nextVisibleObservables: ObservableModel[] = [];
+
+    for (const observable of this.visibleObservables) {
+      if (deletedIds.has(observable.id)) {
+        this.rootStore.observableAnimationStore.removeObservable(observable.id, { snapToTarget: false });
+        continue;
+      }
+
+      const update = updatedById.get(observable.id);
+
+      if (!update) {
+        nextVisibleObservables.push(observable);
+        continue;
+      }
+
+      const shouldAnimate = observable.lon !== update.lon || observable.lat !== update.lat;
+      observable.syncFromObservableData(update, { preserveCoordinate: shouldAnimate });
+
+      if (shouldAnimate) {
+        this.rootStore.observableAnimationStore.startOrRetargetObservable(
+          observable.id,
+          [observable.lon, observable.lat],
+          update,
+          animationDurationMs,
+          streamSeq,
+        );
+      } else {
+        this.rootStore.observableAnimationStore.removeObservable(observable.id);
+      }
+
+      nextVisibleObservables.push(observable);
+    }
+
+    const hasVisibleCompositionChanged = nextVisibleObservables.length !== this.visibleObservables.length;
+    const nextVisibleItems = hasVisibleCompositionChanged
+      ? this.visibleItems.filter((item) => item.kind === 'cluster' || !deletedIds.has(item.id))
+      : this.visibleItems;
+    const nextSelectedObservableId =
+      this.selectedObservableId && deletedIds.has(this.selectedObservableId) ? null : this.selectedObservableId;
+    const stackMetrics = computeVisibleStackMetrics(
+      hasVisibleCompositionChanged
+        ? nextVisibleItems
+        : [
+            ...nextVisibleItems.filter((item) => item.kind === 'cluster'),
+            ...nextVisibleObservables.map((observable) => ({
+              kind: 'point' as const,
+              id: observable.id,
+              lon: observable.lon,
+              lat: observable.lat,
+              name: observable.name,
+              category: observable.category,
+              weight: observable.weight,
+              stackSize: observable.stackSize,
+            })),
+          ],
+    );
+
+    runInAction(() => {
+      if (hasVisibleCompositionChanged) {
+        this.visibleItems = nextVisibleItems;
+        this.visibleObservables = nextVisibleObservables;
+      }
+
+      this.visibleClusters = stackMetrics.visibleClusters;
+      this.visibleLeafPoints = stackMetrics.visibleLeafPoints;
+      this.visibleStackedClusters = stackMetrics.visibleStackedClusters;
+      this.visibleMaxStackSize = stackMetrics.visibleMaxStackSize;
+      this.selectedObservableId = nextSelectedObservableId;
+    });
+
+    this.rootStore.observableAnimationStore.bindVisibleObservables(nextVisibleObservables);
+    this.applyObservableLabelStyles();
   }
 
   private applyObservableLabelStyles(): void {

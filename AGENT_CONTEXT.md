@@ -14,6 +14,9 @@ Core idea:
 - app downloads one large JSON payload with progress
 - app transfers the downloaded JSON buffer into a Web Worker
 - worker parses JSON and builds the `supercluster` index off-thread
+- server can also emit SSE batches of observable mutations via a single `observable` event
+- worker now keeps both a canonical observable map and a batched `supercluster` index snapshot
+- visible leaf animation lives on the main thread and only runs for currently visible leaf observables
 - map re-queries clusters only on `moveend`
 - dataset download progress is based on decoded JSON bytes; server sends `X-Uncompressed-Content-Length` to avoid `>100%` progress with gzip/brotli
 - app also tracks download duration and shows it alongside byte progress
@@ -41,8 +44,11 @@ Core idea:
 - `packages/app/src/models/ObservableModel.ts`: leaf marker model that owns its OpenLayers feature and label style for a single visible point
 - `packages/app/src/stores/DatasetStore.ts`: load phases and progress
 - `packages/app/src/stores/HealthStore.ts`: `/api/health` status, latency and server clock
-- `packages/app/src/stores/ClusterStore.ts`: worker RPC, visible cluster state and selected observable state
+- `packages/app/src/stores/ClusterStore.ts`: worker RPC, visible cluster state, SSE mutation apply/reconcile and selected observable state
+- `packages/app/src/stores/ObservableStreamStore.ts`: SSE connection lifecycle, local stream ordering and batched index flush scheduling
+- `packages/app/src/stores/ObservableAnimationStore.ts`: active visible-leaf motion registry and latest-wins retargeting
 - `packages/app/src/workers/supercluster.worker.ts`: off-thread cluster index
+- `packages/server/src/sse/observableStream.ts`: synthetic SSE observable mutation stream
 - `.github/workflows/ci.yml`: typecheck and build on `push`/`pull_request`, server smoke test only on manual `workflow_dispatch`
 - `.github/workflows/codeql.yml`: scheduled CodeQL scan for JS/TS
 
@@ -54,7 +60,8 @@ Core idea:
 - The right panel starts with a "Выбранный Observable" section that shows the selected marker name and current lon/lat, plus a clear-selection button.
 - App runs a health check on mount and can refresh it manually from the connection section.
 - Dataset startup is still manual.
-- User enters `Количество observable`, chooses dataset type, and clicks `Подключиться`.
+- User enters `Количество observable`, chooses dataset type, and clicks `Инициализировать Observable`.
+- After the initial dataset is ready, user can configure SSE sampling controls and start/stop the observable SSE stream from the same panel.
 - Loading phases are: `idle`, `downloading`, `parsing`, `indexing`, `ready`, `error`.
 - The app targets `0.0.0.0` for dev host binding.
 - Supported dataset modes are `mixed`, `industrial` and `coincident`.
@@ -65,6 +72,10 @@ Core idea:
 - Clicking a leaf marker makes its label bold and mutes labels of other visible markers; clicking empty map space resets label styles to default.
 - If several observables overlap at the clicked pixel, the app currently selects the first hit feature returned by OpenLayers.
 - Selection style changes now redraw existing observable features via `feature.changed()` instead of clearing and rebuilding the observable source.
+- SSE delivers a single `observable` event with `{ insert, update, delete }`.
+- SSE updates apply `latest wins` semantics per `observable.id` within one live session using client-side stream order.
+- Visible leaf updates reuse `ObservableModel` instances by `id`, so motion survives `pan/zoom` and later `queryClusters` if the same leaf becomes visible again.
+- Worker-side `supercluster` rebuild is intentionally batched and flushed after live mutations instead of rebuilding on every SSE update.
 - At maximum zoom, labels are intentionally allowed to overlap and the query bbox is padded so edge labels do not disappear too early.
 - Cluster query zoom is intentionally compressed near the top of the zoom range so dense areas only fully раскрываются on the last two view zoom levels.
 - The display section now exposes editable `supercluster` parameters plus `denseRevealViewZoom`, and applying them rebuilds the worker index without re-downloading the dataset.
@@ -95,6 +106,8 @@ If you need to change clustering behavior:
 - `packages/app/src/constants.ts`
 - `packages/app/src/components/DisplayPanel.tsx`
 - `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/stores/ObservableAnimationStore.ts`
+- `packages/app/src/stores/ObservableStreamStore.ts`
 - `packages/app/src/workers/workerClient.ts`
 - `packages/app/src/workers/supercluster.worker.ts`
 
@@ -115,6 +128,18 @@ If you need to change the overlay shell / right panel layout:
 - `packages/app/src/components/DisplayPanel.tsx`
 - `packages/app/src/components/MetricsPanel.tsx`
 
+If you need to change SSE transport, live mutation batching or synthetic stream behavior:
+
+- `packages/server/src/index.ts`
+- `packages/server/src/config.ts`
+- `packages/server/src/sse/observableStream.ts`
+- `packages/app/src/stores/ObservableStreamStore.ts`
+- `packages/app/src/stores/ClusterStore.ts`
+- `packages/app/src/workers/workerClient.ts`
+- `packages/app/src/workers/supercluster.worker.ts`
+- `shared/points.ts`
+- `shared/worker.ts`
+
 If you need to change repository automation:
 
 - `.github/workflows/ci.yml`
@@ -133,7 +158,9 @@ If you need to change server-side data realism:
 - do not patch OpenLayers internals unless truly necessary
 - do not render labels for the entire dataset at once; keep labels scoped to visible points
 - keep `supercluster` indexing in a Web Worker
+- do not rebuild the `supercluster` index on every SSE update; batch live index flushes instead
 - keep cluster refresh on `moveend`, not per frame
+- keep live motion keyed by stable `observable.id`, not by array position or feature instance identity
 - keep the map as the primary fullscreen surface; the control panel should stay an overlay, not reflow the map
 
 ## Quick commands
