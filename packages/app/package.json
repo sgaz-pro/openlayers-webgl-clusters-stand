@@ -16,17 +16,17 @@
     "bootstrap-icons": "1.13.1",
     "mobx": "6.15.0",
     "mobx-react-lite": "4.1.1",
-    "ol": "10.8.0",
+    "ol": "10.9.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "supercluster": "8.0.1"
   },
   "devDependencies": {
     "@types/geojson": "7946.0.16",
-    "@types/node": "25.5.2",
+    "@types/node": "25.6.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.1",
-    "vite": "8.0.7"
+    "vite": "8.0.10"
   }
 }
